@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text.Json;
 
 namespace WasmNet.Tests;
 
@@ -7,6 +6,7 @@ public class IntegrationTests
 {
     [InlineData("0001-BasicExample.wat")]
     [InlineData("0002-BasicParameters.wat")]
+    [InlineData("0003-BasicParametersInt64.wat")]
     [Theory]
     public async Task IntegrationTest(string file)
     {
@@ -14,6 +14,8 @@ public class IntegrationTests
         var fileText = await File.ReadAllTextAsync(filePath);
         
         var header = Header.Parse(fileText);
+        var (function, args) = header.ParseInvoke();
+        var expected = TypedValue.Parse(header.Expect);
         
         var wasmFile = Path.Combine("IntegrationTests", file.Replace(".wat", ".wasm"));
         
@@ -42,11 +44,7 @@ public class IntegrationTests
         
         await runtime.LoadModuleAsync(wasmFile);
         
-        var (function, args) = header.ParseInvoke();
-        
         var result = await runtime.InvokeAsync(function, args);
-        
-        var expected = TypedValue.Parse(header.Expect);
         
         Assert.Equal(expected.Value, result);
     }
@@ -145,7 +143,8 @@ public class IntegrationTests
         {
             return type switch
             {
-                WasmNumberType { Kind: WasmNumberTypeKind.I32 } => int.Parse(part),
+                WasmNumberType { Kind: WasmNumberTypeKind.I32 } => (object)int.Parse(part),
+                WasmNumberType { Kind: WasmNumberTypeKind.I64 } => long.Parse(part),
                 _ => throw new NotImplementedException("Need to implement ConvertValue for type")
             };
         }
@@ -154,6 +153,7 @@ public class IntegrationTests
             name switch
             {
                 "i32" => new WasmNumberType(WasmNumberTypeKind.I32),
+                "i64" => new WasmNumberType(WasmNumberTypeKind.I64),
                 _ => throw new NotImplementedException($"Unknown type name: {name}")
             };
     }
