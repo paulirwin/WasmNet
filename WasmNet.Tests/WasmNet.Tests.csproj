@@ -29,7 +29,7 @@
 
     <ItemGroup>
       <None Update="IntegrationTests\*.wat">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
     </ItemGroup>
 

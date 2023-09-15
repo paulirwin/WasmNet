@@ -1,5 +1,5 @@
 ;; invoke: life
-;; expect: 42
+;; expect: (i32:42)
 
 (module
     (func (export "life") (result i32)

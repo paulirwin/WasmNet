@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
 
@@ -11,7 +12,7 @@ public static class WasmCompiler
             ? typeof(void) 
             : type.Results[0].MapWasmTypeToDotNetType();
         
-        // TODO: parameters
+        var parameters = type.Parameters.Select(x => x.MapWasmTypeToDotNetType()).ToArray();
 
         if (module.DynamicModule is not { } dynamicModule)
         {
@@ -26,7 +27,7 @@ public static class WasmCompiler
         var method = new DynamicMethod(
             $"WasmFunction_{Guid.NewGuid():N}",
             returnType,
-            Array.Empty<Type>(),
+            parameters,
             dynamicModule,
             true
         );
@@ -48,17 +49,43 @@ public static class WasmCompiler
                 if (instruction.Arguments.Count != 1)
                     throw new InvalidOperationException();
                 
-                if (instruction.Arguments[0] is not WasmNumberValue<uint> numberValue)
+                if (instruction.Arguments[0] is not WasmNumberValue<int> numberValue)
                     throw new InvalidOperationException();
                 
                 il.Emit(OpCodes.Ldc_I4, numberValue.Value);
                 continue;
             }
             
+            if (instruction.Opcode == WasmOpcode.I32Add)
+            {
+                il.Emit(OpCodes.Add);
+                continue;
+            }
+            
+            if (instruction.Opcode == WasmOpcode.LocalGet)
+            {
+                if (instruction.Arguments.Count != 1)
+                    throw new InvalidOperationException();
+                
+                if (instruction.Arguments[0] is not WasmNumberValue<int> numberValue)
+                    throw new InvalidOperationException();
+
+                if (numberValue.Value < type.Parameters.Count)
+                {
+                    il.Emit(OpCodes.Ldarg, numberValue.Value);
+                }
+                else
+                {
+                    throw new NotImplementedException("local.get for locals not implemented.");
+                }
+                
+                continue;
+            }
+            
             throw new NotImplementedException($"Opcode {instruction.Opcode:X} not implemented.");
         }
         
-        var delegateType = typeof(Func<>).MakeGenericType(returnType);
+        var delegateType = Expression.GetDelegateType(parameters.Concat(new[] { returnType }).ToArray());
         
         code.MethodDelegate = method.CreateDelegate(delegateType);
         

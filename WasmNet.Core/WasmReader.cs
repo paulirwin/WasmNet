@@ -159,11 +159,18 @@ public class WasmReader
             // TODO: handle signed/unsigned
             case WasmOpcode.I32Const:
             {
-                var arg = ReadVarUInt32();
-                return new WasmInstruction(WasmOpcode.I32Const, new WasmNumberValue<uint>(WasmNumberTypeKind.I32, arg));
+                var arg = (int)ReadVarUInt32();
+                return new WasmInstruction(WasmOpcode.I32Const, new WasmNumberValue<int>(WasmNumberTypeKind.I32, arg));
             }
             case WasmOpcode.End:
                 return new WasmInstruction(WasmOpcode.End);
+            case WasmOpcode.LocalGet:
+            {
+                var arg = (int)ReadVarUInt32();
+                return new WasmInstruction(WasmOpcode.LocalGet, new WasmNumberValue<int>(WasmNumberTypeKind.I32, arg));
+            }
+            case WasmOpcode.I32Add:
+                return new WasmInstruction(WasmOpcode.I32Add);
             default:
                 throw new Exception($"Unsupported WASM opcode: 0x{opcode:X}");
         }

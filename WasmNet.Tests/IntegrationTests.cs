@@ -6,6 +6,7 @@ namespace WasmNet.Tests;
 public class IntegrationTests
 {
     [InlineData("0001-BasicExample.wat")]
+    [InlineData("0002-BasicParameters.wat")]
     [Theory]
     public async Task IntegrationTest(string file)
     {
@@ -25,7 +26,7 @@ public class IntegrationTests
         process.StartInfo.UseShellExecute = false;
         process.Start();
         
-        await process.WaitForExitAsync();
+        process.WaitForExit();
         
         if (process.ExitCode != 0)
         {
@@ -45,9 +46,9 @@ public class IntegrationTests
         
         var result = await runtime.InvokeAsync(function, args);
         
-        var resultText = JsonSerializer.Serialize(result);
+        var expected = TypedValue.Parse(header.Expect);
         
-        Assert.Equal(header.Expect, resultText);
+        Assert.Equal(expected.Value, result);
     }
 
     private class Header
@@ -63,8 +64,8 @@ public class IntegrationTests
             var function = parts[0];
             
             var args = parts[1..]
-                .Select(i => i.Trim())
-                .Select(i => JsonSerializer.Deserialize<object?>(i))
+                .Select(TypedValue.Parse)
+                .Select(i => i.Value)
                 .ToArray();
             
             return (function, args);
@@ -113,5 +114,47 @@ public class IntegrationTests
                 Expect = expect,
             };
         }
+    }
+
+    private class TypedValue
+    {
+        public required WasmValueType Type { get; init; }
+        
+        public required object? Value { get; init; }
+
+        public static TypedValue Parse(string input)
+        {
+            var parts = input.Trim('(', ')')
+                .Split(':', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+            if (parts.Length != 2)
+            {
+                throw new InvalidOperationException("Cannot parse typed value");
+            }
+
+            var type = TypeNameToValueType(parts[0]);
+            
+            return new TypedValue
+            {
+                Type = type,
+                Value = ConvertValue(type, parts[1]),
+            };
+        }
+
+        private static object? ConvertValue(WasmValueType type, string part)
+        {
+            return type switch
+            {
+                WasmNumberType { Kind: WasmNumberTypeKind.I32 } => int.Parse(part),
+                _ => throw new NotImplementedException("Need to implement ConvertValue for type")
+            };
+        }
+
+        private static WasmValueType TypeNameToValueType(string name) =>
+            name switch
+            {
+                "i32" => new WasmNumberType(WasmNumberTypeKind.I32),
+                _ => throw new NotImplementedException($"Unknown type name: {name}")
+            };
     }
 }
