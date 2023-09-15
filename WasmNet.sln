@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WasmNet", "WasmNet\WasmNet.csproj", "{CA652241-5E08-4DFB-92B7-8C5EDBE67020}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WasmNet.Core", "WasmNet.Core\WasmNet.Core.csproj", "{AA42813D-18C0-42E7-AAD0-B037DD53F9CE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WasmNet.Tests", "WasmNet.Tests\WasmNet.Tests.csproj", "{21409DAA-D5CB-4503-8218-4EB3148594E7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CA652241-5E08-4DFB-92B7-8C5EDBE67020}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CA652241-5E08-4DFB-92B7-8C5EDBE67020}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CA652241-5E08-4DFB-92B7-8C5EDBE67020}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CA652241-5E08-4DFB-92B7-8C5EDBE67020}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AA42813D-18C0-42E7-AAD0-B037DD53F9CE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AA42813D-18C0-42E7-AAD0-B037DD53F9CE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AA42813D-18C0-42E7-AAD0-B037DD53F9CE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AA42813D-18C0-42E7-AAD0-B037DD53F9CE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{21409DAA-D5CB-4503-8218-4EB3148594E7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{21409DAA-D5CB-4503-8218-4EB3148594E7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{21409DAA-D5CB-4503-8218-4EB3148594E7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{21409DAA-D5CB-4503-8218-4EB3148594E7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
