@@ -52,6 +52,15 @@
       <None Update="IntegrationTests\0009-F64Sub.wat">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
+      <None Update="IntegrationTests\0010-I64Const.wat">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="IntegrationTests\0011-F32Const.wat">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="IntegrationTests\0012-F64Const.wat">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
 </Project>

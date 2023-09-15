@@ -56,6 +56,42 @@ public static class WasmCompiler
                 continue;
             }
             
+            if (instruction.Opcode == WasmOpcode.I64Const)
+            {
+                if (instruction.Arguments.Count != 1)
+                    throw new InvalidOperationException();
+                
+                if (instruction.Arguments[0] is not WasmNumberValue<long> numberValue)
+                    throw new InvalidOperationException();
+                
+                il.Emit(OpCodes.Ldc_I8, numberValue.Value);
+                continue;
+            }
+            
+            if (instruction.Opcode == WasmOpcode.F32Const)
+            {
+                if (instruction.Arguments.Count != 1)
+                    throw new InvalidOperationException();
+                
+                if (instruction.Arguments[0] is not WasmNumberValue<float> numberValue)
+                    throw new InvalidOperationException();
+                
+                il.Emit(OpCodes.Ldc_R4, numberValue.Value);
+                continue;
+            }
+            
+            if (instruction.Opcode == WasmOpcode.F64Const)
+            {
+                if (instruction.Arguments.Count != 1)
+                    throw new InvalidOperationException();
+                
+                if (instruction.Arguments[0] is not WasmNumberValue<double> numberValue)
+                    throw new InvalidOperationException();
+                
+                il.Emit(OpCodes.Ldc_R8, numberValue.Value);
+                continue;
+            }
+            
             if (instruction.Opcode is WasmOpcode.I32Add or WasmOpcode.I64Add or WasmOpcode.F32Add or WasmOpcode.F64Add)
             {
                 il.Emit(OpCodes.Add);

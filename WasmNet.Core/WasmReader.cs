@@ -162,8 +162,21 @@ public class WasmReader
                 var arg = (int)ReadVarUInt32();
                 return new WasmInstruction(WasmOpcode.I32Const, new WasmNumberValue<int>(WasmNumberTypeKind.I32, arg));
             }
-            case WasmOpcode.End:
-                return new WasmInstruction(WasmOpcode.End);
+            case WasmOpcode.I64Const:
+            {
+                var arg = (long)ReadVarUInt64();
+                return new WasmInstruction(WasmOpcode.I64Const, new WasmNumberValue<long>(WasmNumberTypeKind.I64, arg));
+            }
+            case WasmOpcode.F32Const:
+            {
+                var arg = ReadVarFloat32();
+                return new WasmInstruction(WasmOpcode.F32Const, new WasmNumberValue<float>(WasmNumberTypeKind.F32, arg));
+            }
+            case WasmOpcode.F64Const:
+            {
+                var arg = ReadVarFloat64();
+                return new WasmInstruction(WasmOpcode.F64Const, new WasmNumberValue<double>(WasmNumberTypeKind.F64, arg));
+            }
             case WasmOpcode.LocalGet:
             {
                 var arg = (int)ReadVarUInt32();
@@ -177,6 +190,7 @@ public class WasmReader
             case WasmOpcode.F32Sub:
             case WasmOpcode.F64Add:
             case WasmOpcode.F64Sub:
+            case WasmOpcode.End:
                 return new WasmInstruction(opcode);
             default:
                 throw new Exception($"Unsupported WASM opcode: 0x{opcode:X}");
@@ -345,6 +359,57 @@ public class WasmReader
         }
 
         return result;
+    }
+    
+    private ulong ReadVarUInt64()
+    {
+        var result = 0ul;
+        var shift = 0;
+
+        while (true)
+        {
+            var b = _stream.ReadByte();
+
+            if (b == -1)
+            {
+                throw new Exception("Invalid WASM file.");
+            }
+
+            result |= (ulong) (b & 0x7F) << shift;
+
+            if ((b & 0x80) == 0)
+            {
+                break;
+            }
+
+            shift += 7;
+        }
+
+        return result;
+    }
+
+    private float ReadVarFloat32()
+    {
+        var bytes = new byte[4];
+        
+        if (_stream.Read(bytes, 0, 4) != 4)
+        {
+            throw new Exception("Invalid WASM file.");
+        }
+
+        return BitConverter.ToSingle(bytes);
+    }
+    
+    private double ReadVarFloat64()
+    {
+        var bytes = new byte[8];
+        
+        if (_stream.Read(bytes, 0, 8) != 8)
+        {
+            throw new Exception("Invalid WASM file.");
+        }
+
+        return BitConverter.ToDouble(bytes);
     }
 
     private void ValidateWasmHeader()
