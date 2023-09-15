@@ -175,6 +175,8 @@ public class WasmReader
                 return new WasmInstruction(WasmOpcode.I64Add);
             case WasmOpcode.F32Add:
                 return new WasmInstruction(WasmOpcode.F32Add);
+            case WasmOpcode.F64Add:
+                return new WasmInstruction(WasmOpcode.F64Add);
             default:
                 throw new Exception($"Unsupported WASM opcode: 0x{opcode:X}");
         }
