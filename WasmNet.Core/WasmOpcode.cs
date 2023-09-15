@@ -7,4 +7,5 @@ public enum WasmOpcode
     End = 0x0B,
     LocalGet = 0x20,
     I64Add = 0x7C,
+    F32Add = 0x92,
 }

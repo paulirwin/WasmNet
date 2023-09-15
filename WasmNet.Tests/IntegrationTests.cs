@@ -7,6 +7,7 @@ public class IntegrationTests
     [InlineData("0001-BasicExample.wat")]
     [InlineData("0002-BasicParameters.wat")]
     [InlineData("0003-BasicParametersInt64.wat")]
+    [InlineData("0004-BasicParametersFloat32.wat")]
     [Theory]
     public async Task IntegrationTest(string file)
     {
@@ -145,6 +146,7 @@ public class IntegrationTests
             {
                 WasmNumberType { Kind: WasmNumberTypeKind.I32 } => (object)int.Parse(part),
                 WasmNumberType { Kind: WasmNumberTypeKind.I64 } => long.Parse(part),
+                WasmNumberType { Kind: WasmNumberTypeKind.F32 } => float.Parse(part),
                 _ => throw new NotImplementedException("Need to implement ConvertValue for type")
             };
         }
@@ -154,6 +156,7 @@ public class IntegrationTests
             {
                 "i32" => new WasmNumberType(WasmNumberTypeKind.I32),
                 "i64" => new WasmNumberType(WasmNumberTypeKind.I64),
+                "f32" => new WasmNumberType(WasmNumberTypeKind.F32),
                 _ => throw new NotImplementedException($"Unknown type name: {name}")
             };
     }

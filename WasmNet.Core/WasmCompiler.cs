@@ -56,7 +56,7 @@ public static class WasmCompiler
                 continue;
             }
             
-            if (instruction.Opcode is WasmOpcode.I32Add or WasmOpcode.I64Add)
+            if (instruction.Opcode is WasmOpcode.I32Add or WasmOpcode.I64Add or WasmOpcode.F32Add)
             {
                 il.Emit(OpCodes.Add);
                 continue;
