@@ -61,6 +61,12 @@ public static class WasmCompiler
                 il.Emit(OpCodes.Add);
                 continue;
             }
+
+            if (instruction.Opcode is WasmOpcode.I32Sub or WasmOpcode.I64Sub or WasmOpcode.F32Sub or WasmOpcode.F64Sub)
+            {
+                il.Emit(OpCodes.Sub);
+                continue;
+            }
             
             if (instruction.Opcode == WasmOpcode.LocalGet)
             {
@@ -82,7 +88,7 @@ public static class WasmCompiler
                 continue;
             }
             
-            throw new NotImplementedException($"Opcode {instruction.Opcode:X} not implemented.");
+            throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
         
         var delegateType = Expression.GetDelegateType(parameters.Concat(new[] { returnType }).ToArray());

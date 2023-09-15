@@ -9,6 +9,10 @@ public class IntegrationTests
     [InlineData("0003-BasicParametersInt64.wat")]
     [InlineData("0004-BasicParametersFloat32.wat")]
     [InlineData("0005-BasicParametersFloat64.wat")]
+    [InlineData("0006-I32Sub.wat")]
+    [InlineData("0007-I64Sub.wat")]
+    [InlineData("0008-F32Sub.wat")]
+    [InlineData("0009-F64Sub.wat")]
     [Theory]
     public async Task IntegrationTest(string file)
     {
@@ -47,8 +51,21 @@ public class IntegrationTests
         await runtime.LoadModuleAsync(wasmFile);
         
         var result = await runtime.InvokeAsync(function, args);
-        
-        Assert.Equal(expected.Value, result);
+
+        if (expected.Value is float f)
+        {
+            var resultF = Assert.IsType<float>(result);
+            Assert.Equal(f, resultF, 0.000001);
+        }
+        else if (expected.Value is double d)
+        {
+            var resultD = Assert.IsType<double>(result);
+            Assert.Equal(d, resultD, 0.000001);
+        }
+        else
+        {
+            Assert.Equal(expected.Value, result);
+        }
     }
 
     private class Header
