@@ -156,15 +156,14 @@ public class WasmReader
         {
             case (WasmOpcode)(-1):
                 throw new Exception("Invalid WASM file.");
-            // TODO: handle signed/unsigned
             case WasmOpcode.I32Const:
             {
-                var arg = (int)ReadVarUInt32();
+                var arg = ReadVarInt32();
                 return new WasmInstruction(WasmOpcode.I32Const, new WasmNumberValue<int>(WasmNumberTypeKind.I32, arg));
             }
             case WasmOpcode.I64Const:
             {
-                var arg = (long)ReadVarUInt64();
+                var arg = ReadVarInt64();
                 return new WasmInstruction(WasmOpcode.I64Const, new WasmNumberValue<long>(WasmNumberTypeKind.I64, arg));
             }
             case WasmOpcode.F32Const:
@@ -193,6 +192,8 @@ public class WasmReader
             case WasmOpcode.I32Or:
             case WasmOpcode.I32Xor:
             case WasmOpcode.I32Shl:
+            case WasmOpcode.I32ShrU:
+            case WasmOpcode.I32ShrS:
             case WasmOpcode.I64Add:
             case WasmOpcode.I64Sub:
             case WasmOpcode.I64Mul:
@@ -204,6 +205,8 @@ public class WasmReader
             case WasmOpcode.I64Or:
             case WasmOpcode.I64Xor:
             case WasmOpcode.I64Shl:
+            case WasmOpcode.I64ShrU:
+            case WasmOpcode.I64ShrS:
             case WasmOpcode.F32Add:
             case WasmOpcode.F32Sub:
             case WasmOpcode.F32Mul:
@@ -383,6 +386,33 @@ public class WasmReader
         return result;
     }
     
+    private int ReadVarInt32()
+    {
+        var result = 0;
+        var shift = 0;
+        int b;
+        
+        do
+        {
+            b = _stream.ReadByte();
+
+            if (b == -1)
+            {
+                throw new Exception("Invalid WASM file.");
+            }
+
+            result |= (b & 0x7F) << shift;
+            shift += 7;
+        } while ((b & 0x80) != 0);
+
+        if (shift < 32 && (b & 0x40) != 0)
+        {
+            result |= ~0 << shift;
+        }
+
+        return result;
+    }
+    
     private ulong ReadVarUInt64()
     {
         var result = 0ul;
@@ -405,6 +435,33 @@ public class WasmReader
             }
 
             shift += 7;
+        }
+
+        return result;
+    }
+    
+    private long ReadVarInt64()
+    {
+        var result = 0L;
+        var shift = 0;
+        long b;
+        
+        do
+        {
+            b = _stream.ReadByte();
+
+            if (b == -1)
+            {
+                throw new Exception("Invalid WASM file.");
+            }
+
+            result |= (b & 0x7F) << shift;
+            shift += 7;
+        } while ((b & 0x80) != 0);
+    
+        if (shift < 64 && (b & 0x40) != 0)
+        {
+            result |= ~0L << shift;
         }
 
         return result;
