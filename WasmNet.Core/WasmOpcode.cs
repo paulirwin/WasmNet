@@ -17,7 +17,9 @@ public enum WasmOpcode
     F32Add = 0x92,
     F32Sub = 0x93,
     F32Mul = 0x94,
+    F32Div = 0x95,
     F64Add = 0xA0,
     F64Sub = 0xA1,
     F64Mul = 0xA2,
+    F64Div = 0xA3,
 }

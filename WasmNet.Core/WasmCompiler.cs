@@ -110,6 +110,12 @@ public static class WasmCompiler
                 continue;
             }
             
+            if (instruction.Opcode is WasmOpcode.F32Div or WasmOpcode.F64Div)
+            {
+                il.Emit(OpCodes.Div);
+                continue;
+            }
+            
             if (instruction.Opcode == WasmOpcode.LocalGet)
             {
                 if (instruction.Arguments.Count != 1)
