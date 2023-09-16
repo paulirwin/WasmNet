@@ -169,6 +169,12 @@ public static class WasmCompiler
                 il.Emit(OpCodes.Shr_Un);
                 continue;
             }
+
+            if (instruction.Opcode is WasmOpcode.I32Eq or WasmOpcode.I64Eq)
+            {
+                il.Emit(OpCodes.Ceq);
+                continue;
+            }
             
             if (instruction.Opcode == WasmOpcode.LocalGet)
             {
