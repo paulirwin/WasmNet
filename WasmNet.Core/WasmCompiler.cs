@@ -134,6 +134,24 @@ public static class WasmCompiler
                 continue;
             }
             
+            if (instruction.Opcode is WasmOpcode.I32And or WasmOpcode.I64And)
+            {
+                il.Emit(OpCodes.And);
+                continue;
+            }
+            
+            if (instruction.Opcode is WasmOpcode.I32Or or WasmOpcode.I64Or)
+            {
+                il.Emit(OpCodes.Or);
+                continue;
+            }
+            
+            if (instruction.Opcode is WasmOpcode.I32Xor or WasmOpcode.I64Xor)
+            {
+                il.Emit(OpCodes.Xor);
+                continue;
+            }
+            
             if (instruction.Opcode == WasmOpcode.LocalGet)
             {
                 if (instruction.Arguments.Count != 1)

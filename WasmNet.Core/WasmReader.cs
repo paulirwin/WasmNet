@@ -189,6 +189,9 @@ public class WasmReader
             case WasmOpcode.I32DivU:
             case WasmOpcode.I32RemS:
             case WasmOpcode.I32RemU:
+            case WasmOpcode.I32And:
+            case WasmOpcode.I32Or:
+            case WasmOpcode.I32Xor:
             case WasmOpcode.I64Add:
             case WasmOpcode.I64Sub:
             case WasmOpcode.I64Mul:
@@ -196,6 +199,9 @@ public class WasmReader
             case WasmOpcode.I64DivU:
             case WasmOpcode.I64RemS:
             case WasmOpcode.I64RemU:
+            case WasmOpcode.I64And:
+            case WasmOpcode.I64Or:
+            case WasmOpcode.I64Xor:
             case WasmOpcode.F32Add:
             case WasmOpcode.F32Sub:
             case WasmOpcode.F32Mul:
