@@ -22,6 +22,10 @@ public class IntegrationTests
     [InlineData("0016-F64Mul.wat")]
     [InlineData("0017-F32Div.wat")]
     [InlineData("0018-F64Div.wat")]
+    [InlineData("0019-I32DivU.wat")]
+    [InlineData("0020-I64DivU.wat")]
+    [InlineData("0021-I32DivS.wat")]
+    [InlineData("0022-I64DivS.wat")]
     [Theory]
     public async Task IntegrationTest(string file)
     {
