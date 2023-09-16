@@ -61,6 +61,18 @@
       <None Update="IntegrationTests\0012-F64Const.wat">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
+      <None Update="IntegrationTests\0013-I32Mul.wat">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="IntegrationTests\0014-I64Mul.wat">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="IntegrationTests\0015-F32Mul.wat">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="IntegrationTests\0016-F64Mul.wat">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
 </Project>

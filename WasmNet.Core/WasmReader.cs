@@ -184,12 +184,16 @@ public class WasmReader
             }
             case WasmOpcode.I32Add:
             case WasmOpcode.I32Sub:
+            case WasmOpcode.I32Mul:
             case WasmOpcode.I64Add:
             case WasmOpcode.I64Sub:
+            case WasmOpcode.I64Mul:
             case WasmOpcode.F32Add:
             case WasmOpcode.F32Sub:
+            case WasmOpcode.F32Mul:
             case WasmOpcode.F64Add:
             case WasmOpcode.F64Sub:
+            case WasmOpcode.F64Mul:
             case WasmOpcode.End:
                 return new WasmInstruction(opcode);
             default:
