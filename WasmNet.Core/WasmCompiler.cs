@@ -152,6 +152,12 @@ public static class WasmCompiler
                 continue;
             }
             
+            if (instruction.Opcode is WasmOpcode.I32Shl or WasmOpcode.I64Shl)
+            {
+                il.Emit(OpCodes.Shl);
+                continue;
+            }
+            
             if (instruction.Opcode == WasmOpcode.LocalGet)
             {
                 if (instruction.Arguments.Count != 1)

@@ -36,6 +36,8 @@ public class IntegrationTests
     [InlineData("0030-I64Or.wat")]
     [InlineData("0031-I32Xor.wat")]
     [InlineData("0032-I64Xor.wat")]
+    [InlineData("0033-I32Shl.wat")]
+    [InlineData("0034-I64Shl.wat")]
     [Theory]
     public async Task IntegrationTest(string file)
     {
