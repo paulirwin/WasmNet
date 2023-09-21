@@ -1,4 +1,6 @@
-﻿namespace WasmNet.Core;
+﻿using System.Reflection;
+
+namespace WasmNet.Core;
 
 public class WasmRuntime
 {
@@ -14,7 +16,62 @@ public class WasmRuntime
         
         var module = reader.ReadModule();
         
+        CompileModule(module);
+        
         _modules.Add(module);
+    }
+
+    private static void CompileModule(WasmModule module)
+    {
+        if (module.FunctionSection is not { } functionSection
+            || module.TypeSection is not { } typeSection
+            || module.CodeSection is not { } codeSection)
+        {
+            return;
+        }
+
+        ForEachFunction(module, (func, type, _) =>
+        {
+            var returnType = type.Results.Count == 0
+                ? typeof(void)
+                : type.Results[0].MapWasmTypeToDotNetType();
+
+            var parameters = type.Parameters.Select(x => x.MapWasmTypeToDotNetType()).ToArray();
+
+            module.EmitAssembly.Value.CreateFunctionBuilder(
+                func.EmitName,
+                returnType,
+                parameters
+            );
+        });
+
+        ForEachFunction(module, (func, type, code) =>
+        {
+            var builder = module.EmitAssembly.Value.GetFunctionBuilder(func.EmitName)
+                          ?? throw new InvalidOperationException($"Unable to find function builder {func.EmitName}");
+            
+            WasmCompiler.CompileFunction(module, builder, type, code);
+        });
+    }
+
+    private static void ForEachFunction(WasmModule module, Action<WasmFunction, WasmType, WasmCode> callback)
+    {
+        if (module.FunctionSection is not { } functionSection
+            || module.TypeSection is not { } typeSection
+            || module.CodeSection is not { } codeSection)
+        {
+            return;
+        }
+
+        for (int i = 0; i < functionSection.Functions.Count; i++)
+        {
+            var func = functionSection.Functions[i];
+            var type = typeSection.Types[(int) func.FunctionSignatureIndex];
+            // HACK? Assuming the indexes are the same
+            var code = codeSection.Codes[i];
+            
+            callback(func, type, code);
+        }
     }
 
     public async Task<object?> InvokeAsync(string function, params object?[] args)
@@ -35,38 +92,30 @@ public class WasmRuntime
         
         if (export == null || foundInModule == null)
         {
-            throw new Exception($"Function {function} not found.");
+            throw new InvalidOperationException($"Function {function} not found.");
         }
         
         if (export.Kind != WasmExportKind.Function)
         {
-            throw new Exception($"Export {function} is not a function.");
+            throw new InvalidOperationException($"Export {function} is not a function.");
         }
         
         var func = foundInModule.FunctionSection?.Functions[(int) export.Index];
-        
+
         if (func == null)
         {
-            throw new Exception($"Function {function} not found.");
-        }
-        
-        var type = foundInModule.TypeSection?.Types[(int) func.FunctionSignatureIndex];
-        
-        if (type == null)
-        {
-            throw new Exception($"Function {function} type signature not found.");
-        }
-        
-        // HACK? Assuming the indexes are the same
-        var code = foundInModule.CodeSection?.Codes[(int) export.Index];
-        
-        if (code == null)
-        {
-            throw new Exception($"Function {function} code section not found.");
+            throw new InvalidOperationException($"Function {function} not found.");
         }
 
-        code.MethodDelegate ??= WasmCompiler.CompileFunction(foundInModule, type, code);
+        var method = foundInModule.EmitAssembly.Value.FunctionHolderType.GetMethod(func.EmitName, 
+            BindingFlags.Public | BindingFlags.Static);
+
+        if (method == null)
+        {
+            throw new InvalidOperationException(
+                $"Unable to find method {func.EmitName} in generated function holder type");
+        }
         
-        return code.MethodDelegate.DynamicInvoke(args);
+        return method.Invoke(null, args);
     }
 }

@@ -186,6 +186,11 @@ public class WasmReader
                 var arg = (int)ReadVarUInt32();
                 return new WasmInstruction(WasmOpcode.LocalGet, new WasmNumberValue<int>(WasmNumberTypeKind.I32, arg));
             }
+            case WasmOpcode.Call:
+            {
+                var arg = (int)ReadVarUInt32();
+                return new WasmInstruction(WasmOpcode.Call, new WasmNumberValue<int>(WasmNumberTypeKind.I32, arg));
+            }
             case WasmOpcode.I32Add:
             case WasmOpcode.I32Sub:
             case WasmOpcode.I32Mul:

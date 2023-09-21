@@ -47,6 +47,7 @@ public class IntegrationTests
     [InlineData("0041-LocalSet.wat")]
     [InlineData("0042-LocalSetWithParameters.wat")]
     [InlineData("0043-ExportWasmFunction.wat")]
+    [InlineData("0044-BasicCall.wat")]
     [Theory]
     public async Task IntegrationTest(string file)
     {

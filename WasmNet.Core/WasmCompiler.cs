@@ -1,37 +1,11 @@
-using System.Linq.Expressions;
-using System.Reflection;
 using System.Reflection.Emit;
 
 namespace WasmNet.Core;
 
 public static class WasmCompiler
 {
-    public static Delegate CompileFunction(WasmModule module, WasmType type, WasmCode code)
+    public static void CompileFunction(WasmModule module, MethodBuilder method, WasmType type, WasmCode code)
     {
-        var returnType = type.Results.Count == 0 
-            ? typeof(void) 
-            : type.Results[0].MapWasmTypeToDotNetType();
-        
-        var parameters = type.Parameters.Select(x => x.MapWasmTypeToDotNetType()).ToArray();
-
-        if (module.DynamicModule is not { } dynamicModule)
-        {
-            dynamicModule = module.DynamicModule = AssemblyBuilder.DefineDynamicAssembly(
-                new AssemblyName($"WasmModule_{Guid.NewGuid():N}"),
-                AssemblyBuilderAccess.Run
-            ).DefineDynamicModule(
-                $"WasmModule_{Guid.NewGuid():N}"
-            );
-        }
-        
-        var method = new DynamicMethod(
-            $"WasmFunction_{Guid.NewGuid():N}",
-            returnType,
-            parameters,
-            dynamicModule,
-            true
-        );
-        
         var il = method.GetILGenerator();
         
         foreach (var local in code.Locals)
@@ -221,14 +195,27 @@ public static class WasmCompiler
                 
                 continue;
             }
+
+            if (instruction.Opcode == WasmOpcode.Call)
+            {
+                if (instruction.Arguments.Count != 1)
+                    throw new InvalidOperationException();
+
+                if (instruction.Arguments[0] is not WasmNumberValue<int> numberValue)
+                    throw new InvalidOperationException();
+
+                var callFunc = module.FunctionSection?.Functions[numberValue.Value]
+                               ?? throw new InvalidOperationException("Invalid function index.");
+
+                var callMethod = module.EmitAssembly.Value.GetFunctionBuilder(callFunc.EmitName)
+                    ?? throw new InvalidOperationException($"Unable to find method {callFunc.EmitName} in generated type");
+                
+                il.Emit(OpCodes.Call, callMethod);
+
+                continue;
+            }
             
             throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
-        
-        var delegateType = Expression.GetDelegateType(parameters.Concat(new[] { returnType }).ToArray());
-        
-        code.MethodDelegate = method.CreateDelegate(delegateType);
-        
-        return code.MethodDelegate;
     }
 }

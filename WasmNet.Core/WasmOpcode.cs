@@ -3,6 +3,7 @@ namespace WasmNet.Core;
 public enum WasmOpcode
 {
     End = 0x0B,
+    Call = 0x10,
     LocalGet = 0x20,
     LocalSet = 0x21,
     I32Const = 0x41,
