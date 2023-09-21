@@ -196,7 +196,7 @@ public static class WasmCompiler
                 }
                 else
                 {
-                    il.Emit(OpCodes.Ldloc, numberValue.Value);
+                    il.Emit(OpCodes.Ldloc, numberValue.Value - type.Parameters.Count);
                 }
                 
                 continue;
@@ -216,7 +216,7 @@ public static class WasmCompiler
                 }
                 else
                 {
-                    il.Emit(OpCodes.Stloc, numberValue.Value);
+                    il.Emit(OpCodes.Stloc, numberValue.Value - type.Parameters.Count);
                 }
                 
                 continue;

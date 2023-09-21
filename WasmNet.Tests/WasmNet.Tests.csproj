@@ -148,6 +148,9 @@
       <None Update="IntegrationTests\0041-LocalSet.wat">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
+      <None Update="IntegrationTests\0042-LocalSetWithParameters.wat">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
 </Project>

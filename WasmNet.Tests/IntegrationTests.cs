@@ -45,6 +45,7 @@ public class IntegrationTests
     [InlineData("0039-I32Eq.wat")]
     [InlineData("0040-I64Eq.wat")]
     [InlineData("0041-LocalSet.wat")]
+    [InlineData("0042-LocalSetWithParameters.wat")]
     [Theory]
     public async Task IntegrationTest(string file)
     {
