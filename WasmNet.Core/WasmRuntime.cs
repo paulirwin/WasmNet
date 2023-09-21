@@ -23,13 +23,6 @@ public class WasmRuntime
 
     private static void CompileModule(WasmModule module)
     {
-        if (module.FunctionSection is not { } functionSection
-            || module.TypeSection is not { } typeSection
-            || module.CodeSection is not { } codeSection)
-        {
-            return;
-        }
-
         ForEachFunction(module, (func, type, _) =>
         {
             var returnType = type.Results.Count == 0
@@ -74,7 +67,7 @@ public class WasmRuntime
         }
     }
 
-    public async Task<object?> InvokeAsync(string function, params object?[] args)
+    public object? Invoke(string function, params object?[] args)
     {
         WasmExport? export = null;
         WasmModule? foundInModule = null;

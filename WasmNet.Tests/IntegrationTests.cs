@@ -48,6 +48,7 @@ public class IntegrationTests
     [InlineData("0042-LocalSetWithParameters.wat")]
     [InlineData("0043-ExportWasmFunction.wat")]
     [InlineData("0044-BasicCall.wat")]
+    [InlineData("0045-CallWithParameters.wat")]
     [Theory]
     public async Task IntegrationTest(string file)
     {
@@ -85,7 +86,7 @@ public class IntegrationTests
         
         await runtime.LoadModuleAsync(wasmFile);
         
-        var result = await runtime.InvokeAsync(function, args);
+        var result = runtime.Invoke(function, args);
 
         if (expected.Value is float f)
         {

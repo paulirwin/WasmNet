@@ -22,7 +22,7 @@ if (args.Length > 1 && args[1] == "--invoke")
     var function = args[2];
     var invokeArgs = args[3..].Select(arg => JsonSerializer.Deserialize<object>(arg)).ToArray();
 
-    var result = await runtime.InvokeAsync(function, invokeArgs);
+    var result = runtime.Invoke(function, invokeArgs);
 
     Console.WriteLine(JsonSerializer.Serialize(result));
 }
