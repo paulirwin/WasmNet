@@ -100,23 +100,23 @@ public class WasmReader
         var size = ReadVarUInt32();
         var codeStart = _stream.Position;
         
-        //var locals = new List<WasmLocal>();
-        var localCount = ReadVarUInt32();
+        var locals = new List<WasmLocal>();
+        var localDeclCount = ReadVarUInt32();
 
-        // for (var i = 0; i < count; i++)
-        // {
-        //     var localCount = ReadVarUInt32();
-        //     var localType = ReadValueType();
-        //
-        //     for (var j = 0; j < localCount; j++)
-        //     {
-        //         locals.Add(new WasmLocal
-        //         {
-        //             Count = localCount,
-        //             Type = localType
-        //         });
-        //     }
-        // }
+        for (var i = 0; i < localDeclCount; i++)
+        {
+            var localTypeCount = ReadVarUInt32();
+            var localType = ReadValueType();
+        
+            for (var j = 0; j < localTypeCount; j++)
+            {
+                locals.Add(new WasmLocal
+                {
+                    Count = (int)localTypeCount,
+                    Type = localType
+                });
+            }
+        }
         
         var body = new List<WasmInstruction>();
         WasmInstruction instruction;
@@ -143,7 +143,7 @@ public class WasmReader
 
         return new WasmCode
         {
-            LocalDeclarationCount = localCount,
+            Locals = locals,
             Body = body,
         };
     }
@@ -175,6 +175,11 @@ public class WasmReader
             {
                 var arg = ReadVarFloat64();
                 return new WasmInstruction(WasmOpcode.F64Const, new WasmNumberValue<double>(WasmNumberTypeKind.F64, arg));
+            }
+            case WasmOpcode.LocalSet:
+            {
+                var arg = (int)ReadVarUInt32();
+                return new WasmInstruction(WasmOpcode.LocalSet, new WasmNumberValue<int>(WasmNumberTypeKind.I32, arg));
             }
             case WasmOpcode.LocalGet:
             {

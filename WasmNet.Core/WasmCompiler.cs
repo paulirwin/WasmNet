@@ -34,7 +34,13 @@ public static class WasmCompiler
         
         var il = method.GetILGenerator();
         
-        // TODO: locals
+        foreach (var local in code.Locals)
+        {
+            for (var i = 0; i < local.Count; i++)
+            {
+                il.DeclareLocal(local.Type.MapWasmTypeToDotNetType());
+            }
+        }
         
         foreach (var instruction in code.Body)
         {
@@ -190,7 +196,27 @@ public static class WasmCompiler
                 }
                 else
                 {
-                    throw new NotImplementedException("local.get for locals not implemented.");
+                    il.Emit(OpCodes.Ldloc, numberValue.Value);
+                }
+                
+                continue;
+            }
+
+            if (instruction.Opcode == WasmOpcode.LocalSet)
+            {
+                if (instruction.Arguments.Count != 1)
+                    throw new InvalidOperationException();
+                
+                if (instruction.Arguments[0] is not WasmNumberValue<int> numberValue)
+                    throw new InvalidOperationException();
+
+                if (numberValue.Value < type.Parameters.Count)
+                {
+                    il.Emit(OpCodes.Starg, numberValue.Value);
+                }
+                else
+                {
+                    il.Emit(OpCodes.Stloc, numberValue.Value);
                 }
                 
                 continue;

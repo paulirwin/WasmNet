@@ -4,6 +4,7 @@ public enum WasmOpcode
 {
     End = 0x0B,
     LocalGet = 0x20,
+    LocalSet = 0x21,
     I32Const = 0x41,
     I64Const = 0x42,
     F32Const = 0x43,
