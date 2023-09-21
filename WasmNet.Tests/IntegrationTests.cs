@@ -46,6 +46,7 @@ public class IntegrationTests
     [InlineData("0040-I64Eq.wat")]
     [InlineData("0041-LocalSet.wat")]
     [InlineData("0042-LocalSetWithParameters.wat")]
+    [InlineData("0043-ExportWasmFunction.wat")]
     [Theory]
     public async Task IntegrationTest(string file)
     {
@@ -141,6 +142,10 @@ public class IntegrationTests
                 else if (line.StartsWith("expect: "))
                 {
                     expect = line[8..];
+                }
+                else if (line.StartsWith("source: "))
+                {
+                    // ignore
                 }
                 else
                 {

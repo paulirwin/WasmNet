@@ -151,6 +151,9 @@
       <None Update="IntegrationTests\0042-LocalSetWithParameters.wat">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
+      <None Update="IntegrationTests\0043-ExportWasmFunction.wat">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
 </Project>
