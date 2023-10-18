@@ -55,7 +55,11 @@ public class EmitAssembly
             throw new InvalidOperationException($"Function {name} already created");
         }
 
-        builder = FunctionHolder.DefineMethod(name, PublicStaticMethod, returnType, parameters);
+        var paramsWithModule = new[] { typeof(ModuleInstance) }
+            .Concat(parameters)
+            .ToArray();
+        
+        builder = FunctionHolder.DefineMethod(name, PublicStaticMethod, returnType, paramsWithModule);
         
         _methodBuilders.Add(name, builder);
 

@@ -15,14 +15,14 @@ if (args.Length < 1)
 
 var runtime = new WasmRuntime();
 
-await runtime.LoadModuleAsync(args[0]);
+var module = await runtime.InstantiateModuleAsync(args[0]);
 
 if (args.Length > 1 && args[1] == "--invoke")
 {
     var function = args[2];
     var invokeArgs = args[3..].Select(arg => JsonSerializer.Deserialize<object>(arg)).ToArray();
 
-    var result = runtime.Invoke(function, invokeArgs);
+    var result = runtime.Invoke(module, function, invokeArgs);
 
     Console.WriteLine(JsonSerializer.Serialize(result));
 }

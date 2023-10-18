@@ -404,3 +404,5 @@ FodyWeavers.xsd
 
 # End of https://www.toptal.com/developers/gitignore/api/VisualStudio
 
+.DS_Store
+ScratchPad.cs

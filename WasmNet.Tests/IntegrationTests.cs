@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace WasmNet.Tests;
 
 public class IntegrationTests
@@ -49,6 +47,7 @@ public class IntegrationTests
     [InlineData("0043-ExportWasmFunction.wat")]
     [InlineData("0044-BasicCall.wat")]
     [InlineData("0045-CallWithParameters.wat")]
+    [InlineData("0046-BasicImport.wat")]
     [Theory]
     public async Task IntegrationTest(string file)
     {
@@ -61,22 +60,6 @@ public class IntegrationTests
         
         var wasmFile = Path.Combine("IntegrationTests", file.Replace(".wat", ".wasm"));
         
-        // must have wat2wasm on your PATH
-        var process = new Process();
-        process.StartInfo.FileName = "wat2wasm";
-        process.StartInfo.WorkingDirectory = Path.Combine(Environment.CurrentDirectory, "IntegrationTests");
-        process.StartInfo.Arguments = file;
-        process.StartInfo.RedirectStandardOutput = true;
-        process.StartInfo.UseShellExecute = false;
-        process.Start();
-        
-        process.WaitForExit();
-        
-        if (process.ExitCode != 0)
-        {
-            throw new Exception($"wat2wasm failed with exit code {process.ExitCode}.");
-        }
-        
         if (!File.Exists(wasmFile))
         {
             throw new Exception($"wat2wasm failed to produce {wasmFile}.");
@@ -84,11 +67,17 @@ public class IntegrationTests
         
         WasmRuntime runtime = new();
         
-        await runtime.LoadModuleAsync(wasmFile);
+        runtime.RegisterImportable("console", "log", (object? param) => Console.WriteLine(param));
         
-        var result = runtime.Invoke(function, args);
+        var module = await runtime.InstantiateModuleAsync(wasmFile);
+        
+        var result = runtime.Invoke(module, function, args);
 
-        if (expected.Value is float f)
+        if (expected.Type is null)
+        {
+            Assert.Null(result);
+        }
+        else if (expected.Value is float f)
         {
             var resultF = Assert.IsType<float>(result);
             Assert.Equal(f, resultF, 0.000001);
@@ -145,7 +134,7 @@ public class IntegrationTests
                 {
                     expect = line[8..];
                 }
-                else if (line.StartsWith("source: "))
+                else if (line.StartsWith("source: ") || line.StartsWith("TODO: "))
                 {
                     // ignore
                 }
@@ -175,7 +164,7 @@ public class IntegrationTests
 
     private class TypedValue
     {
-        public required WasmValueType Type { get; init; }
+        public required WasmValueType? Type { get; init; }
         
         public required object? Value { get; init; }
 
@@ -184,11 +173,20 @@ public class IntegrationTests
             var parts = input.Trim('(', ')')
                 .Split(':', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
+            if (parts[0] == "void")
+            {
+                return new TypedValue
+                {
+                    Type = null,
+                    Value = null,
+                };
+            }
+            
             if (parts.Length != 2)
             {
                 throw new InvalidOperationException("Cannot parse typed value");
             }
-
+            
             var type = TypeNameToValueType(parts[0]);
             
             return new TypedValue

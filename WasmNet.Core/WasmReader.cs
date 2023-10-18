@@ -37,6 +37,9 @@ public class WasmReader
                 case WasmCodeSection codeSection:
                     module.CodeSection = codeSection;
                     break;
+                case WasmImportSection importSection:
+                    module.ImportSection = importSection;
+                    break;
             }
         }
         
@@ -58,6 +61,7 @@ public class WasmReader
         WasmModuleSection section = id switch
         {
             1 => ReadTypeSection(),
+            2 => ReadImportSection(),
             3 => ReadFunctionSection(),
             7 => ReadExportSection(),
             10 => ReadCodeSection(),
@@ -78,6 +82,70 @@ public class WasmReader
         }
 
         return section;
+    }
+
+    private WasmModuleSection ReadImportSection()
+    {
+        var section = new WasmImportSection();
+
+        var count = ReadVarUInt32();
+
+        for (var i = 0; i < count; i++)
+        {
+            var import = ReadImport();
+            section.Imports.Add(import);
+        }
+
+        return section;
+    }
+
+    private WasmImport ReadImport()
+    {
+        var moduleNameLength = ReadVarUInt32();
+        var moduleName = new byte[moduleNameLength];
+
+        if (_stream.Read(moduleName, 0, (int)moduleNameLength) != moduleNameLength)
+        {
+            throw new Exception("Invalid WASM file.");
+        }
+
+        var functionNameLength = ReadVarUInt32();
+        var functionName = new byte[functionNameLength];
+
+        if (_stream.Read(functionName, 0, (int)functionNameLength) != functionNameLength)
+        {
+            throw new Exception("Invalid WASM file.");
+        }
+
+        var kind = _stream.ReadByte();
+
+        if (kind == -1)
+        {
+            throw new Exception("Invalid WASM file.");
+        }
+
+        WasmImportDescriptor desc;
+
+        switch ((WasmImportKind)kind)
+        {
+            case WasmImportKind.Function:
+                var index = ReadVarUInt32();
+                desc = new WasmFunctionImportDescriptor
+                {
+                    TypeIndex = (int)index
+                };
+                break;
+            default:
+                throw new NotImplementedException($"Imports of kind {(WasmImportKind)kind} not yet implemented");
+        }
+
+        return new WasmImport
+        {
+            ModuleName = Encoding.UTF8.GetString(moduleName),
+            Name = Encoding.UTF8.GetString(functionName),
+            Kind = (WasmImportKind)kind,
+            Descriptor = desc,
+        };
     }
 
     private WasmCodeSection ReadCodeSection()
