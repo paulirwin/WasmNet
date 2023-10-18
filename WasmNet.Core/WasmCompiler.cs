@@ -33,7 +33,12 @@ public static class WasmCompiler
             if (instruction.Opcode == WasmOpcode.End)
             {
                 il.Emit(OpCodes.Ret);
-                stack.Pop();
+
+                if (method.ReturnType != typeof(void))
+                {
+                    stack.Pop();
+                }
+
                 continue;
             }
             
@@ -352,6 +357,7 @@ public static class WasmCompiler
                     il.Emit(OpCodes.Ldc_I4, paramIndex);                 // array index
                     il.Emit(OpCodes.Ldloc, hostCallTempLocalIndex);      // load arg from temp local
                     il.Emit(OpCodes.Stelem_Ref);                         // args[index] = arg
+                    stack.Pop();
                 }
                     
                 il.Emit(OpCodes.Ldarg_0);                           // load module instance
