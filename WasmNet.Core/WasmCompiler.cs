@@ -17,15 +17,23 @@ public static class WasmCompiler
             }
         }
         
-        int hostCallArgsLocalIndex = -1, hostCallTempLocalIndex = -1;
+        int callArgsLocalIndex = -1, 
+            callTempLocalIndex = -1,
+            globalTempLocalIndex = -1;
 
         if (code.Body.Any(i => i.Opcode == WasmOpcode.Call))
         {
             var argsLocal = il.DeclareLocal(typeof(object[])); // args
-            hostCallArgsLocalIndex = argsLocal.LocalIndex;
+            callArgsLocalIndex = argsLocal.LocalIndex;
             
             var tempLocal = il.DeclareLocal(typeof(object));   // temp array value for arg
-            hostCallTempLocalIndex = tempLocal.LocalIndex;
+            callTempLocalIndex = tempLocal.LocalIndex;
+        }
+
+        if (code.Body.Any(i => i.Opcode == WasmOpcode.GlobalSet))
+        {
+            var tempLocal = il.DeclareLocal(typeof(object));   // temp global value
+            globalTempLocalIndex = tempLocal.LocalIndex;
         }
         
         foreach (var instruction in code.Body)
@@ -330,7 +338,7 @@ public static class WasmCompiler
 
                 il.Emit(OpCodes.Ldc_I4, funcInstance.ParameterTypes.Length); // num_args = # of args
                 il.Emit(OpCodes.Newarr, typeof(object));                     // new object[num_args]
-                il.Emit(OpCodes.Stloc, hostCallArgsLocalIndex);              // store array in local
+                il.Emit(OpCodes.Stloc, callArgsLocalIndex);              // store array in local
 
                 var stackValues = stack.ToList();
                 
@@ -352,10 +360,10 @@ public static class WasmCompiler
                         il.Emit(OpCodes.Box, stackType); // box value type
                     }
 
-                    il.Emit(OpCodes.Stloc, hostCallTempLocalIndex);      // store arg in temp local
-                    il.Emit(OpCodes.Ldloc, hostCallArgsLocalIndex);      // load array
+                    il.Emit(OpCodes.Stloc, callTempLocalIndex);      // store arg in temp local
+                    il.Emit(OpCodes.Ldloc, callArgsLocalIndex);      // load array
                     il.Emit(OpCodes.Ldc_I4, paramIndex);                 // array index
-                    il.Emit(OpCodes.Ldloc, hostCallTempLocalIndex);      // load arg from temp local
+                    il.Emit(OpCodes.Ldloc, callTempLocalIndex);      // load arg from temp local
                     il.Emit(OpCodes.Stelem_Ref);                         // args[index] = arg
                     stack.Pop();
                 }
@@ -365,7 +373,7 @@ public static class WasmCompiler
                 il.Emit(OpCodes.Callvirt, typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.GetFunction))!); // get function instance
                 // stack now contains function instance
                 
-                il.Emit(OpCodes.Ldloc, hostCallArgsLocalIndex);     // load args array
+                il.Emit(OpCodes.Ldloc, callArgsLocalIndex);     // load args array
                 il.Emit(OpCodes.Callvirt, typeof(IFunctionInstance).GetMethod(nameof(IFunctionInstance.Invoke))!); // invoke function
                 // stack now contains return value
                 stack.Push(funcInstance.ReturnType);
@@ -379,6 +387,73 @@ public static class WasmCompiler
                 {
                     il.Emit(OpCodes.Unbox_Any, funcInstance.ReturnType); // unbox return value
                 }
+                
+                continue;
+            }
+
+            if (instruction.Opcode == WasmOpcode.GlobalGet)
+            {
+                if (instruction.Arguments.Count != 1)
+                    throw new InvalidOperationException();
+                
+                if (instruction.Arguments[0] is not WasmNumberValue<int> numberValue)
+                    throw new InvalidOperationException();
+                
+                var globalIndex = numberValue.Value;
+
+                var globalRef = module.GetGlobal(globalIndex);
+                var globalType = globalRef.Global.Type.MapWasmTypeToDotNetType();
+                
+                il.Emit(OpCodes.Ldarg_0);                           // load module instance
+                il.Emit(OpCodes.Ldc_I4, globalIndex);               // load global index
+                il.Emit(OpCodes.Callvirt, typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.GetGlobalValue))!); // get global instance
+                // stack now contains global value
+                
+                if (globalType.IsValueType)
+                {
+                    il.Emit(OpCodes.Unbox_Any, globalRef.Global.Type.MapWasmTypeToDotNetType()); // unbox global value
+                }
+                
+                stack.Push(globalType);
+                
+                continue;
+            }
+            
+            if (instruction.Opcode == WasmOpcode.GlobalSet)
+            {
+                if (instruction.Arguments.Count != 1)
+                    throw new InvalidOperationException();
+                
+                if (instruction.Arguments[0] is not WasmNumberValue<int> numberValue)
+                    throw new InvalidOperationException();
+                
+                var globalIndex = numberValue.Value;
+                var globalRef = module.GetGlobal(globalIndex);
+                var globalType = globalRef.Global.Type.MapWasmTypeToDotNetType();
+
+                var argType = stack.Pop();
+                
+                if (argType != globalType) 
+                {
+                    throw new InvalidOperationException($"Global {globalIndex} is of type {globalType} but stack contains {argType}");
+                }
+
+                if (!globalRef.Mutable || !globalRef.Global.Mutable)
+                {
+                    throw new InvalidOperationException($"Global {globalIndex} is not mutable");
+                }
+                
+                if (argType.IsValueType)
+                {
+                    il.Emit(OpCodes.Box, argType); // box value type
+                }
+                
+                il.Emit(OpCodes.Stloc, globalTempLocalIndex);      // store arg in temp local
+                
+                il.Emit(OpCodes.Ldarg_0);                           // load module instance
+                il.Emit(OpCodes.Ldc_I4, globalIndex);               // load global index
+                il.Emit(OpCodes.Ldloc, globalTempLocalIndex);       // load arg from temp local
+                il.Emit(OpCodes.Callvirt, typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.SetGlobalValue))!); // set global instance
                 
                 continue;
             }

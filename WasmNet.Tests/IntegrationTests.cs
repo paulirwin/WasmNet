@@ -48,6 +48,7 @@ public class IntegrationTests
     [InlineData("0044-BasicCall.wat")]
     [InlineData("0045-CallWithParameters.wat")]
     [InlineData("0046-BasicImport.wat")]
+    [InlineData("0047-ImportGlobal.wat")]
     [Theory]
     public async Task IntegrationTest(string file)
     {
@@ -55,8 +56,6 @@ public class IntegrationTests
         var fileText = await File.ReadAllTextAsync(filePath);
         
         var header = Header.Parse(fileText);
-        var (function, args) = header.ParseInvoke();
-        var expected = TypedValue.Parse(header.Expect);
         
         var wasmFile = Path.Combine("IntegrationTests", file.Replace(".wat", ".wasm"));
         
@@ -69,39 +68,104 @@ public class IntegrationTests
         
         runtime.RegisterImportable("console", "log", (object? param) => Console.WriteLine(param));
         
+        foreach (var global in header.Operations.OfType<GlobalOperation>())
+        {
+            if (global.Value.Type is not { } type)
+            {
+                throw new InvalidOperationException("Globals require a type");
+            }
+
+            runtime.RegisterImportable(global.Namespace, global.Name, new Global(type, global.Mutable, global.Value.Value));
+        }
+        
         var module = await runtime.InstantiateModuleAsync(wasmFile);
         
-        var result = runtime.Invoke(module, function, args);
+        object? result = null;
 
-        if (expected.Type is null)
+        foreach (var op in header.Operations)
         {
-            Assert.Null(result);
-        }
-        else if (expected.Value is float f)
-        {
-            var resultF = Assert.IsType<float>(result);
-            Assert.Equal(f, resultF, 0.000001);
-        }
-        else if (expected.Value is double d)
-        {
-            var resultD = Assert.IsType<double>(result);
-            Assert.Equal(d, resultD, 0.000001);
-        }
-        else
-        {
-            Assert.Equal(expected.Value, result);
+            if (op is InvokeOperation invoke)
+            {
+                result = runtime.Invoke(module, invoke.Function, invoke.Args);
+            }
+            else if (op is GlobalOperation)
+            {
+                // NOTE: globals are registered above out-of-order
+            }
+            else if (op is ExpectOperation expect)
+            {
+                if (expect.Value.Type is null)
+                {
+                    Assert.Null(result);
+                }
+                else if (expect.Value.Value is float f)
+                {
+                    var resultF = Assert.IsType<float>(result);
+                    Assert.Equal(f, resultF, 0.000001);
+                }
+                else if (expect.Value.Value is double d)
+                {
+                    var resultD = Assert.IsType<double>(result);
+                    Assert.Equal(d, resultD, 0.000001);
+                }
+                else
+                {
+                    Assert.Equal(expect.Value.Value, result);
+                }       
+            }
         }
     }
 
-    private class Header
+    private abstract class Operation
     {
-        public required string Invoke { get; init; }
+    }
+
+    private class GlobalOperation : Operation
+    {
+        public required string Namespace { get; init; }
         
-        public required string Expect { get; init; }
+        public required string Name { get; init; }
         
-        public (string Function, object?[] Args) ParseInvoke()
+        public required bool Mutable { get; init; }
+        
+        public required TypedValue Value { get; init; }
+        
+        public static GlobalOperation Parse(string text)
         {
-            var parts = Invoke.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            
+            var nameParts = parts[0].Split('.', StringSplitOptions.TrimEntries);
+            
+            if (nameParts.Length != 2)
+            {
+                throw new Exception($"Invalid global name: {parts[1]}");
+            }
+            
+            var ns = nameParts[0];
+            var name = nameParts[1];
+            
+            var mutable = parts is [_, "mut", _];
+            var value = TypedValue.Parse(parts[^1]);
+            
+            return new GlobalOperation
+            {
+                Namespace = ns,
+                Name = name,
+                Mutable = mutable,
+                Value = value,
+            };
+        }
+    }
+
+    private class InvokeOperation : Operation
+    {
+        public required string Function { get; init; }
+        
+        public required object?[] Args { get; init; }
+        
+        public static InvokeOperation Parse(string text)
+        {
+            var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             
             var function = parts[0];
             
@@ -110,8 +174,32 @@ public class IntegrationTests
                 .Select(i => i.Value)
                 .ToArray();
             
-            return (function, args);
+            return new InvokeOperation
+            {
+                Function = function,
+                Args = args,
+            };
         }
+    }
+    
+    private class ExpectOperation : Operation
+    {
+        public required TypedValue Value { get; init; }
+        
+        public static ExpectOperation Parse(string text)
+        {
+            var value = TypedValue.Parse(text);
+            
+            return new ExpectOperation
+            {
+                Value = value,
+            };
+        }
+    }
+
+    private class Header
+    {
+        public required IReadOnlyList<Operation> Operations { get; init; }
         
         public static Header Parse(string text)
         {
@@ -121,18 +209,21 @@ public class IntegrationTests
                 .Select(i => i[3..])
                 .ToList();
             
-            string? invoke = null;
-            string? expect = null;
+            var ops = new List<Operation>();
             
             foreach (var line in lines)
             {
                 if (line.StartsWith("invoke: "))
                 {
-                    invoke = line[8..]; 
+                    ops.Add(InvokeOperation.Parse(line[8..])); 
                 }
                 else if (line.StartsWith("expect: "))
                 {
-                    expect = line[8..];
+                    ops.Add(ExpectOperation.Parse(line[8..]));
+                }
+                else if (line.StartsWith("global: "))
+                {
+                    ops.Add(GlobalOperation.Parse(line[8..]));
                 }
                 else if (line.StartsWith("source: ") || line.StartsWith("TODO: "))
                 {
@@ -144,20 +235,9 @@ public class IntegrationTests
                 }
             }
             
-            if (invoke is null)
-            {
-                throw new Exception("Missing invoke header.");
-            }
-            
-            if (expect is null)
-            {
-                throw new Exception("Missing expect header.");
-            }
-            
             return new Header
             {
-                Invoke = invoke,
-                Expect = expect,
+                Operations = ops,
             };
         }
     }

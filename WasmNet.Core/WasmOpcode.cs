@@ -6,6 +6,8 @@ public enum WasmOpcode
     Call = 0x10,
     LocalGet = 0x20,
     LocalSet = 0x21,
+    GlobalGet = 0x23,
+    GlobalSet = 0x24,
     I32Const = 0x41,
     I64Const = 0x42,
     F32Const = 0x43,

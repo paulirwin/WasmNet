@@ -82,6 +82,31 @@ public class WasmRuntime
                 var funcAddr = _store.AddFunction(hostFunc);
                 moduleInstance.AddFunctionAddress(funcAddr);
             }
+            else if (import.Descriptor is WasmGlobalImportDescriptor globalImport)
+            {
+                if (importValue is null)
+                {
+                    throw new InvalidOperationException($"Cannot import a null global for {import.ModuleName}.{import.Name}");
+                }
+
+                if (importValue is not Global global)
+                {
+                    throw new InvalidOperationException("Cannot import anything but a Global as a global");
+                }
+
+                if (!globalImport.Type.Equals(global.Type))
+                {
+                    throw new InvalidOperationException($"Global type mismatch for {import.ModuleName}.{import.Name}");
+                }
+                
+                if (globalImport.Mutable && !global.Mutable)
+                {
+                    throw new InvalidOperationException($"Global mutability mismatch for {import.ModuleName}.{import.Name}");
+                }
+
+                var globalAddr = _store.AddGlobal(global);
+                moduleInstance.AddGlobalAddress(globalAddr, globalImport.Mutable);
+            }
             else
             {
                 throw new NotImplementedException($"Support for {import.Descriptor.GetType()} not yet implemented");

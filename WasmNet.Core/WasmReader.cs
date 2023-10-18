@@ -135,6 +135,15 @@ public class WasmReader
                     TypeIndex = (int)index
                 };
                 break;
+            case WasmImportKind.Global:
+                var valueType = ReadValueType();
+                var mutable = _stream.ReadByte() == 1;
+                desc = new WasmGlobalImportDescriptor
+                {
+                    Type = valueType,
+                    Mutable = mutable
+                };
+                break;
             default:
                 throw new NotImplementedException($"Imports of kind {(WasmImportKind)kind} not yet implemented");
         }
@@ -253,6 +262,16 @@ public class WasmReader
             {
                 var arg = (int)ReadVarUInt32();
                 return new WasmInstruction(WasmOpcode.LocalGet, new WasmNumberValue<int>(WasmNumberTypeKind.I32, arg));
+            }
+            case WasmOpcode.GlobalGet:
+            {
+                var arg = (int)ReadVarUInt32();
+                return new WasmInstruction(WasmOpcode.GlobalGet, new WasmNumberValue<int>(WasmNumberTypeKind.I32, arg));
+            }
+            case WasmOpcode.GlobalSet:
+            {
+                var arg = (int)ReadVarUInt32();
+                return new WasmInstruction(WasmOpcode.GlobalSet, new WasmNumberValue<int>(WasmNumberTypeKind.I32, arg));
             }
             case WasmOpcode.Call:
             {
