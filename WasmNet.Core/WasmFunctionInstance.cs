@@ -2,20 +2,14 @@ using System.Reflection;
 
 namespace WasmNet.Core;
 
-public class WasmFunctionInstance : IFunctionInstance
+public class WasmFunctionInstance(WasmType type, ModuleInstance module, WasmCode code) 
+    : IFunctionInstance
 {
-    public WasmFunctionInstance(WasmType type, ModuleInstance module, WasmCode code)
-    {
-        Type = type;
-        Module = module;
-        Code = code;
-    }
+    public WasmType Type { get; } = type;
 
-    public WasmType Type { get; }
+    public ModuleInstance Module { get; } = module;
 
-    public ModuleInstance Module { get; }
-
-    public WasmCode Code { get; }
+    public WasmCode Code { get; } = code;
 
     public string EmitName { get; } = $"WasmFunction_{Guid.NewGuid():N}";
 
@@ -29,7 +23,7 @@ public class WasmFunctionInstance : IFunctionInstance
 
     public object? Invoke(params object?[]? args)
     {
-        var method = Module.EmitAssembly.Value.FunctionHolderType.GetMethod(EmitName,
+        var method = Module.EmitAssembly.Value.FunctionHolderFuncType.GetMethod(EmitName,
             BindingFlags.Public | BindingFlags.Static);
 
         if (method == null)

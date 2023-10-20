@@ -11,4 +11,6 @@ public class WasmModule
     public WasmExportSection? ExportSection { get; set; }
 
     public WasmCodeSection? CodeSection { get; set; }
+    
+    public WasmGlobalSection? GlobalSection { get; set; }
 }

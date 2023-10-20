@@ -12,7 +12,8 @@ public class EmitAssembly
     public const MethodAttributes PublicStaticMethod =
         MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Static;
 
-    private Type? _typeInfo;
+    private Type? _funcTypeInfo;
+    private Type? _globalTypeInfo;
 
     private readonly IDictionary<string, MethodBuilder> _methodBuilders = new Dictionary<string, MethodBuilder>();
 
@@ -28,6 +29,7 @@ public class EmitAssembly
         );
 
         FunctionHolder = Module.DefineType($"WasmFunctionHolder_{Id:N}", StaticClass);
+        GlobalHolder = Module.DefineType($"WasmGlobalHolder_{Id:N}", StaticClass);
     }
 
     public Guid Id { get; } = Guid.NewGuid();
@@ -37,14 +39,26 @@ public class EmitAssembly
     public ModuleBuilder Module { get; }
 
     public TypeBuilder FunctionHolder { get; }
+    
+    public TypeBuilder GlobalHolder { get; }
 
-    public Type FunctionHolderType
+    public Type FunctionHolderFuncType
     {
         get
         {
-            _typeInfo ??= FunctionHolder.CreateType();
+            _funcTypeInfo ??= FunctionHolder.CreateType();
 
-            return _typeInfo;
+            return _funcTypeInfo;
+        }
+    }
+    
+    public Type GlobalHolderFuncType
+    {
+        get
+        {
+            _globalTypeInfo ??= GlobalHolder.CreateType();
+
+            return _globalTypeInfo;
         }
     }
 
@@ -60,6 +74,20 @@ public class EmitAssembly
             .ToArray();
         
         builder = FunctionHolder.DefineMethod(name, PublicStaticMethod, returnType, paramsWithModule);
+        
+        _methodBuilders.Add(name, builder);
+
+        return builder;
+    }
+    
+    public MethodBuilder CreateGlobalBuilder(string name, Type? returnType)
+    {
+        if (_methodBuilders.TryGetValue(name, out var builder))
+        {
+            throw new InvalidOperationException($"Function {name} already created");
+        }
+
+        builder = GlobalHolder.DefineMethod(name, PublicStaticMethod, returnType, new[] { typeof(ModuleInstance) });
         
         _methodBuilders.Add(name, builder);
 

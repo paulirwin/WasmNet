@@ -40,6 +40,9 @@ public class WasmReader
                 case WasmImportSection importSection:
                     module.ImportSection = importSection;
                     break;
+                case WasmGlobalSection globalSection:
+                    module.GlobalSection = globalSection;
+                    break;
             }
         }
         
@@ -63,6 +66,7 @@ public class WasmReader
             1 => ReadTypeSection(),
             2 => ReadImportSection(),
             3 => ReadFunctionSection(),
+            6 => ReadGlobalSection(),
             7 => ReadExportSection(),
             10 => ReadCodeSection(),
             _ => throw new Exception($"Unsupported WASM section: 0x{id:X}")
@@ -82,6 +86,30 @@ public class WasmReader
         }
 
         return section;
+    }
+
+    private WasmModuleSection ReadGlobalSection()
+    {
+        var section = new WasmGlobalSection();
+
+        var count = ReadVarUInt32();
+
+        for (var i = 0; i < count; i++)
+        {
+            var global = ReadGlobal();
+            section.Globals.Add(global);
+        }
+
+        return section;
+    }
+
+    private WasmGlobal ReadGlobal()
+    {
+        var type = ReadValueType();
+        var mutable = _stream.ReadByte() == 1;
+        var body = ReadInstructionBody();
+
+        return new WasmGlobal(type, mutable, body);
     }
 
     private WasmModuleSection ReadImportSection()
@@ -195,15 +223,7 @@ public class WasmReader
             }
         }
         
-        var body = new List<WasmInstruction>();
-        WasmInstruction instruction;
-        
-        do
-        {
-            instruction = ReadInstruction();
-            body.Add(instruction);
-        }
-        while (instruction.Opcode != WasmOpcode.End);
+        var body = ReadInstructionBody();
 
         var codeEnd = _stream.Position;
 
@@ -223,6 +243,20 @@ public class WasmReader
             Locals = locals,
             Body = body,
         };
+    }
+
+    private List<WasmInstruction> ReadInstructionBody()
+    {
+        var body = new List<WasmInstruction>();
+        WasmInstruction instruction;
+
+        do
+        {
+            instruction = ReadInstruction();
+            body.Add(instruction);
+        } while (instruction.Opcode != WasmOpcode.End);
+
+        return body;
     }
 
     private WasmInstruction ReadInstruction()

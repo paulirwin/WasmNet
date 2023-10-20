@@ -1,4 +1,7 @@
-﻿namespace WasmNet.Core;
+﻿using System.Linq.Expressions;
+using System.Reflection;
+
+namespace WasmNet.Core;
 
 public class WasmRuntime
 {
@@ -37,14 +40,64 @@ public class WasmRuntime
     {
         var moduleInstance = new ModuleInstance(module, _store);
 
-        CompileModuleImports(module, moduleInstance);
+        EvaluateModuleImports(module, moduleInstance);
+        
+        CompileAndEvaluateModuleGlobals(module, moduleInstance);
         
         CompileModuleFunctions(module, moduleInstance);
 
         return moduleInstance;
     }
 
-    private void CompileModuleImports(WasmModule module, ModuleInstance moduleInstance)
+    private void CompileAndEvaluateModuleGlobals(WasmModule module, ModuleInstance moduleInstance)
+    {
+        if (module.GlobalSection is not { } globalSection)
+        {
+            return;
+        }
+
+        foreach (var global in globalSection.Globals)
+        {
+            var emitName = $"WasmGlobal_{Guid.NewGuid():N}";
+            
+            var builder = moduleInstance.EmitAssembly.Value.CreateGlobalBuilder(
+                emitName,
+                global.Type.MapWasmTypeToDotNetType()
+            );
+
+            var funcType = new WasmType
+            {
+                Kind = WasmTypeKind.Function,
+                Parameters = new List<WasmValueType>(),
+                Results = new List<WasmValueType>
+                {
+                    global.Type,
+                }
+            };
+
+            var funcCode = new WasmCode
+            {
+                Locals = new List<WasmLocal>(),
+                Body = global.Init.ToList(),
+            };
+            
+            WasmCompiler.CompileFunction(moduleInstance, builder, funcType, funcCode);
+
+            var method = moduleInstance.EmitAssembly.Value.GlobalHolderFuncType.GetMethod(emitName,
+                BindingFlags.Public | BindingFlags.Static)
+                ?? throw new InvalidOperationException(
+                    $"Unable to find method {emitName} in generated function holder type");
+            
+            var globalValue = method.Invoke(null, new object?[] { moduleInstance });
+            
+            var globalInstance = new Global(global.Type, global.Mutable, globalValue);
+            
+            var globalAddr = _store.AddGlobal(globalInstance);
+            moduleInstance.AddGlobalAddress(globalAddr, global.Mutable);
+        }
+    }
+
+    private void EvaluateModuleImports(WasmModule module, ModuleInstance moduleInstance)
     {
         if (module.ImportSection is not { } importSection
             || module.TypeSection is not { } typeSection)

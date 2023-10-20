@@ -49,6 +49,7 @@ public class IntegrationTests
     [InlineData("0045-CallWithParameters.wat")]
     [InlineData("0046-BasicImport.wat")]
     [InlineData("0047-ImportGlobal.wat")]
+    [InlineData("0048-ModuleGlobal.wat")]
     [Theory]
     public async Task IntegrationTest(string file)
     {
