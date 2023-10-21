@@ -31,6 +31,12 @@ public class WasmReader
                 case WasmFunctionSection functionSection:
                     module.FunctionSection = functionSection;
                     break;
+                case WasmTableSection tableSection:
+                    module.TableSection = tableSection;
+                    break;
+                case WasmElementSection elementSection:
+                    module.ElementSections = elementSection;
+                    break;
                 case WasmExportSection exportSection:
                     module.ExportSection = exportSection;
                     break;
@@ -72,9 +78,11 @@ public class WasmReader
             1 => ReadTypeSection(),
             2 => ReadImportSection(),
             3 => ReadFunctionSection(),
+            4 => ReadTableSection(),
             5 => ReadMemorySection(),
             6 => ReadGlobalSection(),
             7 => ReadExportSection(),
+            9 => ReadElementSection(),
             10 => ReadCodeSection(),
             11 => ReadDataSection(),
             _ => throw new Exception($"Unsupported WASM section: 0x{id:X}")
@@ -113,17 +121,9 @@ public class WasmReader
 
     private WasmMemory ReadMemory()
     {
-        var limitType = _stream.ReadByte();
-        var min = ReadVarUInt32();
-        var max = limitType == 1 ? ReadVarUInt32() : int.MaxValue;
-        
         return new WasmMemory
         {
-            Limits = new WasmMemoryLimits
-            {
-                Min = (int)min,
-                Max = (int)max
-            }
+            Limits = ReadLimits()
         };
     }
 
@@ -275,7 +275,7 @@ public class WasmReader
                 };
                 break;
             case WasmImportKind.Memory:
-                var limits = ReadMemoryLimits();
+                var limits = ReadLimits();
                 desc = new WasmMemoryImportDescriptor
                 {
                     Limits = limits
@@ -294,19 +294,19 @@ public class WasmReader
         };
     }
 
-    private WasmMemoryLimits ReadMemoryLimits()
+    private WasmLimits ReadLimits()
     {
-        var flags = _stream.ReadByte();
-
-        if (flags == -1)
+        var flags = (WasmLimitsFlags)_stream.ReadByte();
+        
+        if (!Enum.IsDefined(flags))
         {
-            throw new Exception("Invalid WASM file.");
+            throw new Exception($"Invalid WASM limits flags value: {flags}");
         }
 
         var min = ReadVarUInt32();
-        var max = flags == 1 ? ReadVarUInt32() : int.MaxValue;
+        var max = flags == WasmLimitsFlags.MinAndMax ? ReadVarUInt32() : int.MaxValue;
 
-        return new WasmMemoryLimits
+        return new WasmLimits
         {
             Min = (int)min,
             Max = (int)max
@@ -390,7 +390,7 @@ public class WasmReader
     private WasmInstruction ReadInstruction()
     {
         var opcode = (WasmOpcode)_stream.ReadByte();
-        
+
         switch (opcode)
         {
             case (WasmOpcode)(-1):
@@ -408,12 +408,14 @@ public class WasmReader
             case WasmOpcode.F32Const:
             {
                 var arg = ReadVarFloat32();
-                return new WasmInstruction(WasmOpcode.F32Const, new WasmNumberValue<float>(WasmNumberTypeKind.F32, arg));
+                return new WasmInstruction(WasmOpcode.F32Const,
+                    new WasmNumberValue<float>(WasmNumberTypeKind.F32, arg));
             }
             case WasmOpcode.F64Const:
             {
                 var arg = ReadVarFloat64();
-                return new WasmInstruction(WasmOpcode.F64Const, new WasmNumberValue<double>(WasmNumberTypeKind.F64, arg));
+                return new WasmInstruction(WasmOpcode.F64Const,
+                    new WasmNumberValue<double>(WasmNumberTypeKind.F64, arg));
             }
             case WasmOpcode.LocalSet:
             {
@@ -483,6 +485,54 @@ public class WasmReader
         }
     }
 
+    private WasmElementSection ReadElementSection()
+    {
+        /*
+         Section:
+         https://webassembly.github.io/spec/core/binary/modules.html#binary-elemsec
+
+            ; section "Elem" (9)
+            0000031: 09                                        ; section code
+            0000032: 00                                        ; section size (guess)
+            0000033: 01                                        ; num elem segments
+        */
+        var section = new WasmElementSection();
+
+        var count = ReadVarUInt32();
+
+        for (var i = 0; i < count; i++)
+        {
+            var element = ReadElement();
+            section.Elements.Add(element);
+        }
+        
+        return section;
+    }
+
+    private WasmElement ReadElement()
+    {
+        /*
+         Segment:
+         https://webassembly.github.io/spec/core/syntax/modules.html#element-segments
+         
+            ; elem segment header 0
+            0000034: 00                                        ; segment flags
+            0000035: 41                                        ; i32.const
+            0000036: 00                                        ; i32 literal
+            0000037: 0b                                        ; end
+            0000038: 02                                        ; num elems
+            0000039: 00                                        ; elem function index
+            000003a: 01                                        ; elem function index
+        */
+
+        throw new NotImplementedException();
+
+        return new WasmElement
+        {
+            
+        };
+    }
+
     private WasmExportSection ReadExportSection()
     {
         var section = new WasmExportSection();
@@ -541,6 +591,45 @@ public class WasmReader
             };
             
             section.Functions.Add(function);
+        }
+
+        return section;
+    }
+
+    private WasmReferenceType ReadReferenceType()
+    {
+        var refType = (WasmReferenceType)_stream.ReadByte();
+
+        if (!Enum.IsDefined(refType))
+        {
+            throw new Exception($"Invalid WASM Reference Type: {refType}");
+        }
+
+        return refType;
+    }
+    
+    private WasmTableSection ReadTableSection()
+    {
+        var section = new WasmTableSection();
+
+        var count = ReadVarUInt32();
+
+        for (var i = 0; i < count; i++)
+        {
+            var refType = ReadReferenceType();
+
+            if (refType != WasmReferenceType.FuncRef)
+            {
+                throw new Exception($"Unsupported WASM Reference Type: {refType}");
+            }
+           
+            var table = new WasmTable
+            {
+                TableReferenceType = refType, 
+                Limits = ReadLimits()
+            };
+            
+            section.Tables.Add(table);
         }
 
         return section;

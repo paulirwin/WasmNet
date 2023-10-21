@@ -17,4 +17,8 @@ public class WasmModule
     public WasmDataSection? DataSection { get; set; }
     
     public WasmMemorySection? MemorySection { get; set; }
+    
+    public WasmTableSection? TableSection { get; set; }
+    
+    public WasmElementSection? ElementSections { get; set; }
 }

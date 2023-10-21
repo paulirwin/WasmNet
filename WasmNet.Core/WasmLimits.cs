@@ -1,6 +1,6 @@
 namespace WasmNet.Core;
 
-public class WasmMemoryLimits
+public class WasmLimits
 {
     public required int Min { get; init; }
     
