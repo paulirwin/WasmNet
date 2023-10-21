@@ -13,4 +13,8 @@ public class WasmModule
     public WasmCodeSection? CodeSection { get; set; }
     
     public WasmGlobalSection? GlobalSection { get; set; }
+    
+    public WasmDataSection? DataSection { get; set; }
+    
+    public WasmMemorySection? MemorySection { get; set; }
 }

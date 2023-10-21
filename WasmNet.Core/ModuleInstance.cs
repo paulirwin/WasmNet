@@ -1,20 +1,15 @@
 namespace WasmNet.Core;
 
-public class ModuleInstance
+public class ModuleInstance(WasmModule module, Store store)
 {
     private readonly List<WasmType> _types = new();
     private readonly List<int> _functionAddresses = new();
+    private readonly List<int> _memoryAddresses = new();
     private readonly List<(int Address, bool Mutable)> _globalAddresses = new();
 
-    public ModuleInstance(WasmModule module, Store store)
-    {
-        Module = module;
-        Store = store;
-    }
-    
-    public WasmModule Module { get; }
-    
-    public Store Store { get; }
+    public WasmModule Module { get; } = module;
+
+    public Store Store { get; } = store;
 
     public IReadOnlyList<WasmType> Types => _types;
 
@@ -22,10 +17,12 @@ public class ModuleInstance
     
     public IReadOnlyList<(int Address, bool Mutable)> GlobalAddresses => _globalAddresses;
     
+    public IReadOnlyList<int> MemoryAddresses => _memoryAddresses;
+    
     public Lazy<EmitAssembly> EmitAssembly { get; } = new(LazyThreadSafetyMode.ExecutionAndPublication);
     
     public IDictionary<string, IDictionary<string, object?>>? Importables { get; set; }
-    
+
     public int AddType(WasmType type)
     {
         var index = _types.Count;
@@ -78,5 +75,12 @@ public class ModuleInstance
         var (address, mutable) = _globalAddresses[index];
 
         return (Store.Globals[address], mutable);
+    }
+    
+    public int AddMemoryAddress(int address)
+    {
+        var index = _memoryAddresses.Count;
+        _memoryAddresses.Add(address);
+        return index;
     }
 }

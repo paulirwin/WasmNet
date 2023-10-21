@@ -1,55 +1,11 @@
+using System.Text;
+using Xunit.Abstractions;
+
 namespace WasmNet.Tests;
 
-public class IntegrationTests
+public class IntegrationTests(ITestOutputHelper testOutputHelper)
 {
-    [InlineData("0001-BasicExample.wat")]
-    [InlineData("0002-BasicParameters.wat")]
-    [InlineData("0003-BasicParametersInt64.wat")]
-    [InlineData("0004-BasicParametersFloat32.wat")]
-    [InlineData("0005-BasicParametersFloat64.wat")]
-    [InlineData("0006-I32Sub.wat")]
-    [InlineData("0007-I64Sub.wat")]
-    [InlineData("0008-F32Sub.wat")]
-    [InlineData("0009-F64Sub.wat")]
-    [InlineData("0010-I64Const.wat")]
-    [InlineData("0011-F32Const.wat")]
-    [InlineData("0012-F64Const.wat")]
-    [InlineData("0013-I32Mul.wat")]
-    [InlineData("0014-I64Mul.wat")]
-    [InlineData("0015-F32Mul.wat")]
-    [InlineData("0016-F64Mul.wat")]
-    [InlineData("0017-F32Div.wat")]
-    [InlineData("0018-F64Div.wat")]
-    [InlineData("0019-I32DivU.wat")]
-    [InlineData("0020-I64DivU.wat")]
-    [InlineData("0021-I32DivS.wat")]
-    [InlineData("0022-I64DivS.wat")]
-    [InlineData("0023-I32RemU.wat")]
-    [InlineData("0024-I64RemU.wat")]
-    [InlineData("0025-I32RemS.wat")]
-    [InlineData("0026-I64RemS.wat")]
-    [InlineData("0027-I32And.wat")]
-    [InlineData("0028-I64And.wat")]
-    [InlineData("0029-I32Or.wat")]
-    [InlineData("0030-I64Or.wat")]
-    [InlineData("0031-I32Xor.wat")]
-    [InlineData("0032-I64Xor.wat")]
-    [InlineData("0033-I32Shl.wat")]
-    [InlineData("0034-I64Shl.wat")]
-    [InlineData("0035-I32ShrU.wat")]
-    [InlineData("0036-I32ShrS.wat")]
-    [InlineData("0037-I64ShrU.wat")]
-    [InlineData("0038-I64ShrS.wat")]
-    [InlineData("0039-I32Eq.wat")]
-    [InlineData("0040-I64Eq.wat")]
-    [InlineData("0041-LocalSet.wat")]
-    [InlineData("0042-LocalSetWithParameters.wat")]
-    [InlineData("0043-ExportWasmFunction.wat")]
-    [InlineData("0044-BasicCall.wat")]
-    [InlineData("0045-CallWithParameters.wat")]
-    [InlineData("0046-BasicImport.wat")]
-    [InlineData("0047-ImportGlobal.wat")]
-    [InlineData("0048-ModuleGlobal.wat")]
+    [MemberData(nameof(GetWatFiles))]
     [Theory]
     public async Task IntegrationTest(string file)
     {
@@ -66,8 +22,26 @@ public class IntegrationTests
         }
         
         WasmRuntime runtime = new();
+
+        var externalCalls = new Dictionary<string, int>();
         
-        runtime.RegisterImportable("console", "log", (object? param) => Console.WriteLine(param));
+        runtime.RegisterImportable("console", "log", (object? param) =>
+        {
+            externalCalls["console.log"] = externalCalls.TryGetValue("console.log", out var count) ? count + 1 : 1;
+            
+            testOutputHelper.WriteLine(param?.ToString() ?? "null");
+        });
+        
+        runtime.RegisterImportable("console", "logmem", (int offset, int size) =>
+        {
+            externalCalls["console.logmem"] = externalCalls.TryGetValue("console.logmem", out var count) ? count + 1 : 1;
+
+            var memory = runtime.Store.Memory[0];
+            var bytes = memory.Read(offset, size);
+            var str = Encoding.UTF8.GetString(bytes);
+            
+            testOutputHelper.WriteLine(str);
+        });
         
         foreach (var global in header.Operations.OfType<GlobalOperation>())
         {
@@ -77,6 +51,11 @@ public class IntegrationTests
             }
 
             runtime.RegisterImportable(global.Namespace, global.Name, new Global(type, global.Mutable, global.Value.Value));
+        }
+        
+        foreach (var memory in header.Operations.OfType<MemoryOperation>())
+        {
+            runtime.RegisterImportable(memory.Namespace, memory.Name, new Memory(memory.Min, memory.Max ?? int.MaxValue));
         }
         
         var module = await runtime.InstantiateModuleAsync(wasmFile);
@@ -89,9 +68,14 @@ public class IntegrationTests
             {
                 result = runtime.Invoke(module, invoke.Function, invoke.Args);
             }
-            else if (op is GlobalOperation)
+            else if (op is GlobalOperation or MemoryOperation)
             {
-                // NOTE: globals are registered above out-of-order
+                // NOTE: globals and memories are registered above out-of-order
+            }
+            else if (op is ExpectCallOperation expectCall)
+            {
+                Assert.True(externalCalls.TryGetValue($"{expectCall.Namespace}.{expectCall.Name}", out var count), $"Expected call to {expectCall.Namespace}.{expectCall.Name} but it was not called");
+                Assert.True(count > 0);
             }
             else if (op is ExpectOperation expect)
             {
@@ -116,9 +100,51 @@ public class IntegrationTests
             }
         }
     }
-
-    private abstract class Operation
+    
+    public static IEnumerable<object[]> GetWatFiles()
     {
+        var files = Directory.GetFiles("IntegrationTests", "*.wat", SearchOption.AllDirectories);
+        
+        return files.Select(i => new object[] { Path.GetFileName(i) });
+    }
+
+    private abstract class Operation;
+
+    private class MemoryOperation : Operation
+    {
+        public required string Namespace { get; init; }
+        
+        public required string Name { get; init; }
+        
+        public required int Min { get; init; }
+        
+        public int? Max { get; init; }
+        
+        public static MemoryOperation Parse(string text)
+        {
+            var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            
+            var nameParts = parts[0].Split('.', StringSplitOptions.TrimEntries);
+            
+            if (nameParts.Length != 2)
+            {
+                throw new Exception($"Invalid global name: {parts[1]}");
+            }
+            
+            var ns = nameParts[0];
+            var name = nameParts[1];
+            
+            var min = int.Parse(parts[1]);
+            int? max = parts.Length > 2 ? int.Parse(parts[2]) : null;
+            
+            return new MemoryOperation
+            {
+                Namespace = ns,
+                Name = name,
+                Min = min,
+                Max = max,
+            };
+        }
     }
 
     private class GlobalOperation : Operation
@@ -182,6 +208,34 @@ public class IntegrationTests
             };
         }
     }
+
+    private class ExpectCallOperation : Operation
+    {
+        public required string Namespace { get; init; }
+        
+        public required string Name { get; init; }
+        
+        public static ExpectCallOperation Parse(string text)
+        {
+            var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            
+            var nameParts = parts[0].Split('.', StringSplitOptions.TrimEntries);
+            
+            if (nameParts.Length != 2)
+            {
+                throw new Exception($"Invalid global name: {parts[1]}");
+            }
+            
+            var ns = nameParts[0];
+            var name = nameParts[1];
+            
+            return new ExpectCallOperation
+            {
+                Namespace = ns,
+                Name = name,
+            };
+        }
+    }
     
     private class ExpectOperation : Operation
     {
@@ -222,9 +276,17 @@ public class IntegrationTests
                 {
                     ops.Add(ExpectOperation.Parse(line[8..]));
                 }
+                else if (line.StartsWith("expect_call: "))
+                {
+                    ops.Add(ExpectCallOperation.Parse(line[13..]));
+                }
                 else if (line.StartsWith("global: "))
                 {
                     ops.Add(GlobalOperation.Parse(line[8..]));
+                }
+                else if (line.StartsWith("memory: "))
+                {
+                    ops.Add(MemoryOperation.Parse(line[8..]));
                 }
                 else if (line.StartsWith("source: ") || line.StartsWith("TODO: "))
                 {
@@ -277,7 +339,7 @@ public class IntegrationTests
             };
         }
 
-        private static object? ConvertValue(WasmValueType type, string part)
+        private static object ConvertValue(WasmValueType type, string part)
         {
             return type switch
             {

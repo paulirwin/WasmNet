@@ -43,6 +43,12 @@ public class WasmReader
                 case WasmGlobalSection globalSection:
                     module.GlobalSection = globalSection;
                     break;
+                case WasmDataSection dataSection:
+                    module.DataSection = dataSection;
+                    break;
+                case WasmMemorySection memorySection:
+                    module.MemorySection = memorySection;
+                    break;
             }
         }
         
@@ -66,9 +72,11 @@ public class WasmReader
             1 => ReadTypeSection(),
             2 => ReadImportSection(),
             3 => ReadFunctionSection(),
+            5 => ReadMemorySection(),
             6 => ReadGlobalSection(),
             7 => ReadExportSection(),
             10 => ReadCodeSection(),
+            11 => ReadDataSection(),
             _ => throw new Exception($"Unsupported WASM section: 0x{id:X}")
         };
         
@@ -86,6 +94,100 @@ public class WasmReader
         }
 
         return section;
+    }
+
+    private WasmModuleSection ReadMemorySection()
+    {
+        var section = new WasmMemorySection();
+
+        var count = ReadVarUInt32();
+
+        for (var i = 0; i < count; i++)
+        {
+            var memory = ReadMemory();
+            section.Memories.Add(memory);
+        }
+
+        return section;
+    }
+
+    private WasmMemory ReadMemory()
+    {
+        var limitType = _stream.ReadByte();
+        var min = ReadVarUInt32();
+        var max = limitType == 1 ? ReadVarUInt32() : int.MaxValue;
+        
+        return new WasmMemory
+        {
+            Limits = new WasmMemoryLimits
+            {
+                Min = (int)min,
+                Max = (int)max
+            }
+        };
+    }
+
+    private WasmModuleSection ReadDataSection()
+    {
+        var section = new WasmDataSection();
+
+        var count = ReadVarUInt32();
+
+        for (var i = 0; i < count; i++)
+        {
+            var data = ReadData();
+            section.Data.Add(data);
+        }
+
+        return section; 
+    }
+
+    private WasmData ReadData()
+    {
+        var dataKind = (WasmDataKind)ReadVarUInt32();
+        List<WasmInstruction>? offsetExpr = null;
+        int? memIndex = null;
+        byte[] data;
+        
+        switch (dataKind)
+        {
+            case WasmDataKind.ActiveOffsetZero:
+                offsetExpr = ReadInstructionBody();
+                memIndex = 0;
+                data = ReadByteVector();
+                break;
+            case WasmDataKind.Passive:
+                data = ReadByteVector();
+                break;
+            case WasmDataKind.ActiveOffsetSpecified:
+                memIndex = (int)ReadVarUInt32();
+                offsetExpr = ReadInstructionBody();
+                data = ReadByteVector();
+                break;
+            default:
+                throw new Exception($"Unexpected data kind: {dataKind:X}");
+        }
+
+        return new WasmData
+        {
+            DataKind = dataKind,
+            MemoryIndex = memIndex,
+            OffsetExpr = offsetExpr,
+            Data = data
+        };
+    }
+
+    private byte[] ReadByteVector()
+    {
+        var size = ReadVarUInt32();
+        var data = new byte[size];
+
+        if (_stream.Read(data, 0, (int)size) != size)
+        {
+            throw new Exception("Invalid WASM file.");
+        }
+
+        return data;
     }
 
     private WasmModuleSection ReadGlobalSection()
@@ -172,6 +274,13 @@ public class WasmReader
                     Mutable = mutable
                 };
                 break;
+            case WasmImportKind.Memory:
+                var limits = ReadMemoryLimits();
+                desc = new WasmMemoryImportDescriptor
+                {
+                    Limits = limits
+                };
+                break;
             default:
                 throw new NotImplementedException($"Imports of kind {(WasmImportKind)kind} not yet implemented");
         }
@@ -182,6 +291,25 @@ public class WasmReader
             Name = Encoding.UTF8.GetString(functionName),
             Kind = (WasmImportKind)kind,
             Descriptor = desc,
+        };
+    }
+
+    private WasmMemoryLimits ReadMemoryLimits()
+    {
+        var flags = _stream.ReadByte();
+
+        if (flags == -1)
+        {
+            throw new Exception("Invalid WASM file.");
+        }
+
+        var min = ReadVarUInt32();
+        var max = flags == 1 ? ReadVarUInt32() : int.MaxValue;
+
+        return new WasmMemoryLimits
+        {
+            Min = (int)min,
+            Max = (int)max
         };
     }
 
