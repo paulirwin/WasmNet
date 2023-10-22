@@ -2,13 +2,13 @@
 
 public class WasmElement
 {
-    public required WasmReferenceType Type { get; init; }
+    public required WasmReferenceKind Kind { get; init; }
     
-    public required IList<IList<WasmInstruction>> Init { get; init; }
+    public required IList<Expression> Init { get; init; }
     
     public required WasmElementMode Mode { get; init; }
     
     public int? TableIndex { get; init; }
     
-    public IList<WasmInstruction>? Offset { get; init; }
+    public Expression? Offset { get; init; }
 }

@@ -1,14 +1,21 @@
 namespace WasmNet.Core;
 
-public class Table(int min, int max)
+public class Table
 {
-    private readonly List<Reference> _elements = new(min);
+    private readonly List<Reference> _elements;
+
+    public Table(int min, int max)
+    {
+        _elements = Enumerable.Repeat(new NullReference(), min).OfType<Reference>().ToList();
+        Min = min;
+        Max = max;
+    }
 
     public IReadOnlyList<Reference> Elements => _elements;
     
-    public int Min { get; } = min;
+    public int Min { get; }
     
-    public int Max { get; } = max;
+    public int Max { get; }
     
     public int Count => _elements.Count;
     

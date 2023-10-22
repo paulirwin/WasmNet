@@ -2,7 +2,7 @@
 
 public class WasmTable 
 {
-    public required WasmReferenceType TableReferenceType { get; init; }
+    public required WasmReferenceKind TableReferenceKind { get; init; }
 
     public required WasmLimits Limits { get; init; }
 }

@@ -35,7 +35,7 @@ public class WasmReader
                     module.TableSection = tableSection;
                     break;
                 case WasmElementSection elementSection:
-                    module.ElementSections = elementSection;
+                    module.ElementsSection = elementSection;
                     break;
                 case WasmExportSection exportSection:
                     module.ExportSection = exportSection;
@@ -145,7 +145,7 @@ public class WasmReader
     private WasmData ReadData()
     {
         var dataKind = (WasmDataKind)ReadVarUInt32();
-        List<WasmInstruction>? offsetExpr = null;
+        Expression? offsetExpr = null;
         int? memIndex = null;
         byte[] data;
         
@@ -386,7 +386,7 @@ public class WasmReader
         };
     }
 
-    private List<WasmInstruction> ReadExpression()
+    private Expression ReadExpression()
     {
         var body = new List<WasmInstruction>();
         WasmInstruction instruction;
@@ -397,7 +397,10 @@ public class WasmReader
             body.Add(instruction);
         } while (instruction.Opcode != WasmOpcode.End);
 
-        return body;
+        return new Expression
+        {
+            Instructions = body,
+        };
     }
 
     private WasmInstruction ReadInstruction()
@@ -536,9 +539,10 @@ public class WasmReader
         // https://webassembly.github.io/spec/core/binary/modules.html#element-section
         
         var format = _stream.ReadByte();
-        List<WasmInstruction>? offsetExpr;
-        List<IList<WasmInstruction>>? init;
-        WasmReferenceType type;
+            
+        Expression? offsetExpr;
+        List<Expression>? init;
+        WasmReferenceKind kind;
         WasmElementMode mode;
         int? tableIndex;
 
@@ -547,15 +551,18 @@ public class WasmReader
             // 0:u32 e:expr y*:vec(funcidx)
             // => { type funcref, init ((ref.func y) end)*, mode active { table 0, offset e } }
             case 0:
-                type = WasmReferenceType.FuncRef;
+                kind = WasmReferenceKind.FuncRef;
                 mode = WasmElementMode.Active;
                 tableIndex = 0;
                 offsetExpr = ReadExpression();
                 var funcIndexes = ReadUInt32Vector();
-                init = funcIndexes.Select(i => (IList<WasmInstruction>)new List<WasmInstruction>
+                init = funcIndexes.Select(i => new Expression
                 {
-                    new(WasmOpcode.RefFunc, new WasmNumberValue<int>(WasmNumberTypeKind.I32, (int)i)),
-                    new(WasmOpcode.End),
+                    Instructions = new List<WasmInstruction> 
+                    {
+                        new(WasmOpcode.RefFunc, new WasmNumberValue<int>(WasmNumberTypeKind.I32, (int)i)),
+                        new(WasmOpcode.End),
+                    }
                 }).ToList();
                 break;
             default: 
@@ -564,7 +571,7 @@ public class WasmReader
         
         return new WasmElement
         {
-            Type = type,
+            Kind = kind,
             Init = init,
             Mode = mode,
             TableIndex = tableIndex,
@@ -635,9 +642,9 @@ public class WasmReader
         return section;
     }
 
-    private WasmReferenceType ReadReferenceType()
+    private WasmReferenceKind ReadReferenceType()
     {
-        var refType = (WasmReferenceType)_stream.ReadByte();
+        var refType = (WasmReferenceKind)_stream.ReadByte();
 
         if (!Enum.IsDefined(refType))
         {
@@ -657,14 +664,14 @@ public class WasmReader
         {
             var refType = ReadReferenceType();
 
-            if (refType != WasmReferenceType.FuncRef)
+            if (refType != WasmReferenceKind.FuncRef)
             {
                 throw new Exception($"Unsupported WASM Reference Type: {refType}");
             }
            
             var table = new WasmTable
             {
-                TableReferenceType = refType, 
+                TableReferenceKind = refType, 
                 Limits = ReadLimits()
             };
             

@@ -20,5 +20,5 @@ public class WasmModule
     
     public WasmTableSection? TableSection { get; set; }
     
-    public WasmElementSection? ElementSections { get; set; }
+    public WasmElementSection? ElementsSection { get; set; }
 }

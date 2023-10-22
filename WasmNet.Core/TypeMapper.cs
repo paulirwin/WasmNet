@@ -14,6 +14,7 @@ public static class TypeMapper
                 WasmNumberTypeKind.F64 => typeof(double),
                 _ => throw new ArgumentOutOfRangeException()
             },
+            WasmReferenceType _ => typeof(Reference),
             _ => throw new ArgumentOutOfRangeException()
         };
     }

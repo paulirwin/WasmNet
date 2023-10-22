@@ -22,7 +22,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             globalTempLocalIndex = -1,
             callIndirectElementLocalIndex = -1;
 
-        if (code.Body.Any(i => i.Opcode is WasmOpcode.Call or WasmOpcode.CallIndirect))
+        if (code.Body.Instructions.Any(i => i.Opcode is WasmOpcode.Call or WasmOpcode.CallIndirect))
         {
             var argsLocal = _il.DeclareLocal(typeof(object[])); // args
             callArgsLocalIndex = argsLocal.LocalIndex;
@@ -31,19 +31,19 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             callTempLocalIndex = tempLocal.LocalIndex;
         }
         
-        if (code.Body.Any(i => i.Opcode == WasmOpcode.CallIndirect))
+        if (code.Body.Instructions.Any(i => i.Opcode == WasmOpcode.CallIndirect))
         {
             var elementLocal = _il.DeclareLocal(typeof(int));   // temp array value for element index
             callIndirectElementLocalIndex = elementLocal.LocalIndex;
         }
 
-        if (code.Body.Any(i => i.Opcode == WasmOpcode.GlobalSet))
+        if (code.Body.Instructions.Any(i => i.Opcode == WasmOpcode.GlobalSet))
         {
             var tempLocal = _il.DeclareLocal(typeof(object));   // temp global value
             globalTempLocalIndex = tempLocal.LocalIndex;
         }
         
-        foreach (var instruction in code.Body)
+        foreach (var instruction in code.Body.Instructions)
         {
             CompileInstruction(instruction, callArgsLocalIndex, callTempLocalIndex, globalTempLocalIndex, callIndirectElementLocalIndex);
         }
@@ -132,9 +132,28 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.GlobalSet:
                 GlobalSet(instruction, globalTempLocalIndex);
                 break;
+            case WasmOpcode.RefFunc:
+                RefFunc(instruction);
+                break;
             default:
                 throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
+    }
+
+    private void RefFunc(WasmInstruction instruction)
+    {
+        if (instruction.Arguments.Count != 1)
+            throw new InvalidOperationException();
+
+        if (instruction.Arguments[0] is not WasmNumberValue<int> { Value: var numberValue })
+            throw new InvalidOperationException();
+
+        _il.Emit(OpCodes.Ldarg_0); // load module instance
+        _il.Emit(OpCodes.Ldc_I4, numberValue); // load function index
+        _il.Emit(OpCodes.Callvirt, typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.GetFunctionReference))!); // get function reference
+        // stack now contains function reference
+
+        _stack.Push(typeof(FunctionReference));
     }
 
     private void DeclareLocals()

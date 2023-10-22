@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using System.Reflection.Emit;
 
 namespace WasmNet.Core;
 
@@ -48,13 +49,93 @@ public class WasmRuntime
         
         EvaluateModuleMemory(module, moduleInstance);
         
-        CompileAndEvaluateModuleData(module, moduleInstance);
+        DeclareModuleFunctions(module, moduleInstance);
         
         CompileAndEvaluateModuleGlobals(module, moduleInstance);
         
-        CompileModuleFunctions(module, moduleInstance);
+        CompileAndEvaluateModuleElements(module, moduleInstance);
+        
+        CompileAndEvaluateModuleData(module, moduleInstance);
+        
+        CompileFunctionBodies(moduleInstance);
 
         return moduleInstance;
+    }
+
+    private void CompileAndEvaluateModuleElements(WasmModule module, ModuleInstance moduleInstance)
+    {
+        if (module.ElementsSection is not { } elementSection)
+        {
+            return;
+        }
+        
+        // pass 1: compile elements
+        foreach (var element in elementSection.Elements)
+        {
+            CompileElement(moduleInstance, element);
+        }
+
+        foreach (var element in elementSection.Elements)
+        {
+            EvaluateElement(moduleInstance, element);
+        }
+    }
+
+    private void EvaluateElement(ModuleInstance moduleInstance, WasmElement element)
+    {
+        if (element.Offset is not { } offsetExpr)
+        {
+            throw new InvalidOperationException("Element offset expression is null");
+        }
+        
+        var tableIndex = element.TableIndex ?? 0;
+        var tableAddress = moduleInstance.TableAddresses[tableIndex];
+        var table = Store.Tables[tableAddress];
+        
+        var offset = GetExpressionValue(moduleInstance,
+            () => moduleInstance.EmitAssembly.Value.ElementHolderType,
+            offsetExpr.EmitName);
+
+        if (offset is not int offsetInt)
+        {
+            throw new InvalidOperationException("Element offset expression did not evaluate to an int");
+        }
+
+        var funcRefs = element.Init
+            .Select(i => GetExpressionValue(moduleInstance, 
+                () => moduleInstance.EmitAssembly.Value.ElementHolder,
+                i.EmitName))
+            .Cast<FunctionReference>()
+            .ToList();
+
+        foreach (var funcRef in funcRefs)
+        {
+            table[offsetInt] = funcRef;
+            offsetInt++;
+        }
+    }
+
+    private void CompileElement(ModuleInstance moduleInstance, WasmElement element)
+    {
+        // TODO: deal with passive/declarative elements
+        if (element.Mode != WasmElementMode.Active)
+        {
+            throw new NotImplementedException("Only active elements are supported");
+        }
+        
+        var offsetExpr = element.Offset ?? throw new InvalidOperationException("Element offset expression is null");
+        CompileExpression(moduleInstance,
+            moduleInstance.EmitAssembly.Value.ElementHolder,
+            new WasmNumberType(WasmNumberTypeKind.I32),
+            offsetExpr);
+
+        foreach (var initExpr in element.Init)
+        {
+            CompileExpression(moduleInstance,
+                moduleInstance.EmitAssembly.Value.ElementHolder,
+                new WasmReferenceType(),
+                initExpr);
+        }
     }
 
     private void EvaluateModuleTables(WasmModule module, ModuleInstance moduleInstance)
@@ -108,7 +189,8 @@ public class WasmRuntime
         {
             return;
         }
-
+        
+        // pass 1: compile data
         foreach (var data in dataSection.Data)
         {
             if (data.DataKind == WasmDataKind.Passive)
@@ -116,21 +198,35 @@ public class WasmRuntime
                 continue;
             }
 
-            CompileAndEvaluateDataRecord(moduleInstance, data);
+            CompileDataRecord(moduleInstance, data);
+        }
+
+        // pass 2: evaluate data
+        foreach (var data in dataSection.Data)
+        {
+            if (data.DataKind == WasmDataKind.Passive)
+            {
+                continue;
+            }
+
+            EvaluateDataRecord(moduleInstance, data);
         }
     }
 
-    private void CompileAndEvaluateDataRecord(ModuleInstance moduleInstance, WasmData data)
+    private void EvaluateDataRecord(ModuleInstance moduleInstance, WasmData data)
     {
+        if (data.OffsetExpr is not { } offsetExpr)
+        {
+            throw new InvalidOperationException("Data offset expression is null");
+        }
+        
         int memoryIndex = data.MemoryIndex ?? 0;
         var memoryAddress = moduleInstance.MemoryAddresses[memoryIndex];
         var memory = Store.Memory[memoryAddress];
 
-        var offsetExpr = data.OffsetExpr ?? throw new InvalidOperationException("Data offset expression is null");
-        var offset = CompileAndEvaluateValue(moduleInstance,
-            $"WasmDataOffset_{Guid.NewGuid():N}",
-            new WasmNumberType(WasmNumberTypeKind.I32),
-            offsetExpr);
+        var offset = GetExpressionValue(moduleInstance,
+            () => moduleInstance.EmitAssembly.Value.DataHolderType,
+            offsetExpr.EmitName);
 
         if (offset is not int offsetInt)
         {
@@ -142,25 +238,50 @@ public class WasmRuntime
         memory.Write(offsetInt, dataBytes);
     }
 
+    private void CompileDataRecord(ModuleInstance moduleInstance, WasmData data)
+    {
+        var offsetExpr = data.OffsetExpr ?? throw new InvalidOperationException("Data offset expression is null");
+        CompileExpression(moduleInstance,
+            moduleInstance.EmitAssembly.Value.DataHolder,
+            new WasmNumberType(WasmNumberTypeKind.I32),
+            offsetExpr);
+    }
+
     private void CompileAndEvaluateModuleGlobals(WasmModule module, ModuleInstance moduleInstance)
     {
         if (module.GlobalSection is not { } globalSection)
         {
             return;
         }
-
+        
+        // pass 1: compile globals
         foreach (var global in globalSection.Globals)
         {
-            CompileAndEvaluateGlobal(moduleInstance, global);
+            CompileGlobal(moduleInstance, global);
+        }
+
+        // pass 2: evaluate globals
+        foreach (var global in globalSection.Globals)
+        {
+            EvaluateGlobal(moduleInstance, global, global.Type);
         }
     }
 
-    private void CompileAndEvaluateGlobal(ModuleInstance moduleInstance, WasmGlobal global)
+    private void CompileGlobal(ModuleInstance moduleInstance, WasmGlobal global)
     {
-        var emitName = $"WasmGlobal_{Guid.NewGuid():N}";
         var valueType = global.Type;
 
-        var globalValue = CompileAndEvaluateValue(moduleInstance, emitName, valueType, global.Init);
+        CompileExpression(moduleInstance, 
+            moduleInstance.EmitAssembly.Value.GlobalHolder,
+            valueType, 
+            global.Init);
+    }
+
+    private void EvaluateGlobal(ModuleInstance moduleInstance, WasmGlobal global, WasmValueType valueType)
+    {
+        var globalValue = GetExpressionValue(moduleInstance,
+            () => moduleInstance.EmitAssembly.Value.GlobalHolderType,
+            global.Init.EmitName);
 
         var globalInstance = new Global(valueType, global.Mutable, globalValue);
 
@@ -168,13 +289,15 @@ public class WasmRuntime
         moduleInstance.AddGlobalAddress(globalAddr, global.Mutable);
     }
 
-    private static object? CompileAndEvaluateValue(ModuleInstance moduleInstance, 
-        string emitName, 
+    private static void CompileExpression(
+        ModuleInstance moduleInstance,
+        TypeBuilder typeBuilder,
         WasmValueType valueType,
-        IEnumerable<WasmInstruction> expr)
+        Expression expr)
     {
         var builder = moduleInstance.EmitAssembly.Value.CreateGlobalBuilder(
-            emitName,
+            typeBuilder,
+            expr.EmitName,
             valueType.MapWasmTypeToDotNetType()
         );
 
@@ -191,12 +314,15 @@ public class WasmRuntime
         var funcCode = new WasmCode
         {
             Locals = new List<WasmLocal>(),
-            Body = expr.ToList(),
+            Body = expr,
         };
 
         WasmCompiler.CompileFunction(moduleInstance, builder, funcType, funcCode);
+    }
 
-        var method = moduleInstance.EmitAssembly.Value.GlobalHolderFuncType.GetMethod(emitName,
+    private static object? GetExpressionValue(ModuleInstance moduleInstance, Func<Type> holderTypeGetter, string emitName)
+    {
+        var method = holderTypeGetter().GetMethod(emitName,
                          BindingFlags.Public | BindingFlags.Static)
                      ?? throw new InvalidOperationException(
                          $"Unable to find method {emitName} in generated function holder type");
@@ -299,7 +425,7 @@ public class WasmRuntime
         }
     }
 
-    private void CompileModuleFunctions(WasmModule module, ModuleInstance moduleInstance)
+    private void DeclareModuleFunctions(WasmModule module, ModuleInstance moduleInstance)
     {
         if (module.FunctionSection is not { } functionSection
             || module.TypeSection is not { } typeSection
@@ -326,8 +452,6 @@ public class WasmRuntime
                 funcInstance.ParameterTypes
             );
         }
-
-        CompileFunctionBodies(moduleInstance);
     }
 
     private void CompileFunctionBodies(ModuleInstance moduleInstance)

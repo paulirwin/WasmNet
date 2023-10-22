@@ -147,4 +147,11 @@ public class ModuleInstance(WasmModule module, Store store)
         var functionResult = function.Invoke(functionArguments);
         return functionResult;
     }
+    
+    public FunctionReference GetFunctionReference(int index)
+    {
+        var address = _functionAddresses[index];
+
+        return new FunctionReference(address);
+    }
 }

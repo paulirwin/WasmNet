@@ -14,6 +14,8 @@ public class EmitAssembly
 
     private Type? _funcTypeInfo;
     private Type? _globalTypeInfo;
+    private Type? _dataTypeInfo;
+    private Type? _elementTypeInfo;
 
     private readonly IDictionary<string, MethodBuilder> _methodBuilders = new Dictionary<string, MethodBuilder>();
 
@@ -30,6 +32,8 @@ public class EmitAssembly
 
         FunctionHolder = Module.DefineType($"WasmFunctionHolder_{Id:N}", StaticClass);
         GlobalHolder = Module.DefineType($"WasmGlobalHolder_{Id:N}", StaticClass);
+        DataHolder = Module.DefineType($"WasmDataHolder_{Id:N}", StaticClass);
+        ElementHolder = Module.DefineType($"WasmElementHolder_{Id:N}", StaticClass);
     }
 
     public Guid Id { get; } = Guid.NewGuid();
@@ -41,8 +45,12 @@ public class EmitAssembly
     public TypeBuilder FunctionHolder { get; }
     
     public TypeBuilder GlobalHolder { get; }
+    
+    public TypeBuilder DataHolder { get; }
+    
+    public TypeBuilder ElementHolder { get; }
 
-    public Type FunctionHolderFuncType
+    public Type FunctionHolderType
     {
         get
         {
@@ -52,13 +60,33 @@ public class EmitAssembly
         }
     }
     
-    public Type GlobalHolderFuncType
+    public Type GlobalHolderType
     {
         get
         {
             _globalTypeInfo ??= GlobalHolder.CreateType();
 
             return _globalTypeInfo;
+        }
+    }
+    
+    public Type DataHolderType
+    {
+        get
+        {
+            _dataTypeInfo ??= DataHolder.CreateType();
+
+            return _dataTypeInfo;
+        }
+    }
+    
+    public Type ElementHolderType
+    {
+        get
+        {
+            _elementTypeInfo ??= ElementHolder.CreateType();
+
+            return _elementTypeInfo;
         }
     }
 
@@ -80,14 +108,14 @@ public class EmitAssembly
         return builder;
     }
     
-    public MethodBuilder CreateGlobalBuilder(string name, Type? returnType)
+    public MethodBuilder CreateGlobalBuilder(TypeBuilder typeBuilder, string name, Type? returnType)
     {
         if (_methodBuilders.TryGetValue(name, out var builder))
         {
             throw new InvalidOperationException($"Function {name} already created");
         }
 
-        builder = GlobalHolder.DefineMethod(name, PublicStaticMethod, returnType, new[] { typeof(ModuleInstance) });
+        builder = typeBuilder.DefineMethod(name, PublicStaticMethod, returnType, new[] { typeof(ModuleInstance) });
         
         _methodBuilders.Add(name, builder);
 

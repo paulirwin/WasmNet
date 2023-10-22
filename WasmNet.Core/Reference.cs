@@ -1,3 +1,3 @@
 namespace WasmNet.Core;
 
-public abstract class Reference;
+public abstract class Reference : WasmReferenceType;

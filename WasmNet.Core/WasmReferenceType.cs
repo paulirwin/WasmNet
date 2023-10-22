@@ -1,7 +1,8 @@
-﻿namespace WasmNet.Core;
+namespace WasmNet.Core;
 
-public enum WasmReferenceType
+public class WasmReferenceType : WasmValueType
 {
-    ExternRef = 0x6f,
-    FuncRef = 0x70,
+    public override bool Equals(object? other) => other is WasmReferenceType;
+
+    public override int GetHashCode() => 0;
 }
