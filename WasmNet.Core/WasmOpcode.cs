@@ -4,6 +4,7 @@ public enum WasmOpcode
 {
     End = 0x0B,
     Call = 0x10,
+    CallIndirect = 0x11,
     LocalGet = 0x20,
     LocalSet = 0x21,
     GlobalGet = 0x23,
@@ -48,4 +49,5 @@ public enum WasmOpcode
     F64Sub = 0xA1,
     F64Mul = 0xA2,
     F64Div = 0xA3,
+    RefFunc = 0xD2,
 }

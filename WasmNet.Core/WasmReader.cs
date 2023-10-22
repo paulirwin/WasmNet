@@ -152,7 +152,7 @@ public class WasmReader
         switch (dataKind)
         {
             case WasmDataKind.ActiveOffsetZero:
-                offsetExpr = ReadInstructionBody();
+                offsetExpr = ReadExpression();
                 memIndex = 0;
                 data = ReadByteVector();
                 break;
@@ -161,7 +161,7 @@ public class WasmReader
                 break;
             case WasmDataKind.ActiveOffsetSpecified:
                 memIndex = (int)ReadVarUInt32();
-                offsetExpr = ReadInstructionBody();
+                offsetExpr = ReadExpression();
                 data = ReadByteVector();
                 break;
             default:
@@ -176,6 +176,19 @@ public class WasmReader
             Data = data
         };
     }
+    
+    private uint[] ReadUInt32Vector()
+    {
+        var size = ReadVarUInt32();
+        var data = new uint[size];
+
+        for (var i = 0; i < size; i++)
+        {
+            data[i] = ReadVarUInt32();
+        }
+
+        return data;
+    } 
 
     private byte[] ReadByteVector()
     {
@@ -209,7 +222,7 @@ public class WasmReader
     {
         var type = ReadValueType();
         var mutable = _stream.ReadByte() == 1;
-        var body = ReadInstructionBody();
+        var body = ReadExpression();
 
         return new WasmGlobal(type, mutable, body);
     }
@@ -351,7 +364,7 @@ public class WasmReader
             }
         }
         
-        var body = ReadInstructionBody();
+        var body = ReadExpression();
 
         var codeEnd = _stream.Position;
 
@@ -373,7 +386,7 @@ public class WasmReader
         };
     }
 
-    private List<WasmInstruction> ReadInstructionBody()
+    private List<WasmInstruction> ReadExpression()
     {
         var body = new List<WasmInstruction>();
         WasmInstruction instruction;
@@ -441,6 +454,14 @@ public class WasmReader
             {
                 var arg = (int)ReadVarUInt32();
                 return new WasmInstruction(WasmOpcode.Call, new WasmNumberValue<int>(WasmNumberTypeKind.I32, arg));
+            }
+            case WasmOpcode.CallIndirect:
+            {
+                var y = (int)ReadVarUInt32();
+                var x = (int)ReadVarUInt32();
+                return new WasmInstruction(WasmOpcode.CallIndirect,
+                    new WasmNumberValue<int>(WasmNumberTypeKind.I32, x),
+                    new WasmNumberValue<int>(WasmNumberTypeKind.I32, y));
             }
             case WasmOpcode.I32Add:
             case WasmOpcode.I32Sub:
@@ -511,25 +532,43 @@ public class WasmReader
 
     private WasmElement ReadElement()
     {
-        /*
-         Segment:
-         https://webassembly.github.io/spec/core/syntax/modules.html#element-segments
-         
-            ; elem segment header 0
-            0000034: 00                                        ; segment flags
-            0000035: 41                                        ; i32.const
-            0000036: 00                                        ; i32 literal
-            0000037: 0b                                        ; end
-            0000038: 02                                        ; num elems
-            0000039: 00                                        ; elem function index
-            000003a: 01                                        ; elem function index
-        */
+        // https://webassembly.github.io/spec/core/syntax/modules.html#element-segments
+        // https://webassembly.github.io/spec/core/binary/modules.html#element-section
+        
+        var format = _stream.ReadByte();
+        List<WasmInstruction>? offsetExpr;
+        List<IList<WasmInstruction>>? init;
+        WasmReferenceType type;
+        WasmElementMode mode;
+        int? tableIndex;
 
-        throw new NotImplementedException();
-
+        switch (format)
+        {
+            // 0:u32 e:expr y*:vec(funcidx)
+            // => { type funcref, init ((ref.func y) end)*, mode active { table 0, offset e } }
+            case 0:
+                type = WasmReferenceType.FuncRef;
+                mode = WasmElementMode.Active;
+                tableIndex = 0;
+                offsetExpr = ReadExpression();
+                var funcIndexes = ReadUInt32Vector();
+                init = funcIndexes.Select(i => (IList<WasmInstruction>)new List<WasmInstruction>
+                {
+                    new(WasmOpcode.RefFunc, new WasmNumberValue<int>(WasmNumberTypeKind.I32, (int)i)),
+                    new(WasmOpcode.End),
+                }).ToList();
+                break;
+            default: 
+                throw new NotImplementedException($"Element segment format {format} not yet implemented");
+        }
+        
         return new WasmElement
         {
-            
+            Type = type,
+            Init = init,
+            Mode = mode,
+            TableIndex = tableIndex,
+            Offset = offsetExpr,
         };
     }
 

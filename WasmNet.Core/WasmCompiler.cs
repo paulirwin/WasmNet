@@ -19,15 +19,22 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         
         int callArgsLocalIndex = -1, 
             callTempLocalIndex = -1,
-            globalTempLocalIndex = -1;
+            globalTempLocalIndex = -1,
+            callIndirectElementLocalIndex = -1;
 
-        if (code.Body.Any(i => i.Opcode == WasmOpcode.Call))
+        if (code.Body.Any(i => i.Opcode is WasmOpcode.Call or WasmOpcode.CallIndirect))
         {
             var argsLocal = _il.DeclareLocal(typeof(object[])); // args
             callArgsLocalIndex = argsLocal.LocalIndex;
             
             var tempLocal = _il.DeclareLocal(typeof(object));   // temp array value for arg
             callTempLocalIndex = tempLocal.LocalIndex;
+        }
+        
+        if (code.Body.Any(i => i.Opcode == WasmOpcode.CallIndirect))
+        {
+            var elementLocal = _il.DeclareLocal(typeof(int));   // temp array value for element index
+            callIndirectElementLocalIndex = elementLocal.LocalIndex;
         }
 
         if (code.Body.Any(i => i.Opcode == WasmOpcode.GlobalSet))
@@ -38,12 +45,15 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         
         foreach (var instruction in code.Body)
         {
-            CompileInstruction(instruction, callArgsLocalIndex, callTempLocalIndex, globalTempLocalIndex);
+            CompileInstruction(instruction, callArgsLocalIndex, callTempLocalIndex, globalTempLocalIndex, callIndirectElementLocalIndex);
         }
     }
 
-    private void CompileInstruction(WasmInstruction instruction, int callArgsLocalIndex, int callTempLocalIndex,
-        int globalTempLocalIndex)
+    private void CompileInstruction(WasmInstruction instruction, 
+        int callArgsLocalIndex, 
+        int callTempLocalIndex,
+        int globalTempLocalIndex,
+        int callIndirectElementLocalIndex)
     {
         switch (instruction.Opcode)
         {
@@ -112,6 +122,9 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
                 break;
             case WasmOpcode.Call:
                 Call(instruction, callArgsLocalIndex, callTempLocalIndex);
+                break;
+            case WasmOpcode.CallIndirect:
+                CallIndirect(instruction, callArgsLocalIndex, callTempLocalIndex, callIndirectElementLocalIndex);
                 break;
             case WasmOpcode.GlobalGet:
                 GlobalGet(instruction);
@@ -201,24 +214,58 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         _stack.Push(globalType);
     }
 
-    private void Call(WasmInstruction instruction, int callArgsLocalIndex, int callTempLocalIndex)
+    private void CallIndirect(WasmInstruction instruction, 
+        int callArgsLocalIndex, 
+        int callTempLocalIndex,
+        int callIndirectElementLocalIndex)
     {
-        var (funcInstance, funcIndex) = GetFunctionInstanceForCall(module, instruction);
+        if (instruction.Arguments.Count != 2)
+            throw new InvalidOperationException("call_indirect expects two arguments");
+        
+        if (instruction.Arguments[0] is not WasmNumberValue<int> { Value: var tableIndexValue })
+            throw new InvalidOperationException("call_indirect expects first argument to be table index");
+        
+        if (instruction.Arguments[1] is not WasmNumberValue<int> { Value: var typeIndexValue })
+            throw new InvalidOperationException("call_indirect expects second argument to be type index");
+        
+        var type = module.Types[typeIndexValue];
+        var returnType = type.Results.Count == 0 ? typeof(void) : type.Results[0].MapWasmTypeToDotNetType();
+        
+        PrepareCallArgsArray(callArgsLocalIndex, callTempLocalIndex, type.Parameters.Count);
 
-        _il.Emit(OpCodes.Ldc_I4, funcInstance.ParameterTypes.Length); // num_args = # of args
+        // stack now contains the element index int, store to local
+        _il.Emit(OpCodes.Stloc, callIndirectElementLocalIndex);
+        _stack.Pop();
+        
+        _il.Emit(OpCodes.Ldarg_0); // load module instance
+        _il.Emit(OpCodes.Ldc_I4, tableIndexValue); // load table index
+        _il.Emit(OpCodes.Ldc_I4, typeIndexValue); // load type index
+        _il.Emit(OpCodes.Ldloc, callIndirectElementLocalIndex); // load element index
+        _il.Emit(OpCodes.Ldloc, callArgsLocalIndex); // load args array
+        _il.Emit(OpCodes.Callvirt,
+            typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.CallIndirect))!); // get function instance
+        // stack now contains return value
+        _stack.Push(returnType);
+
+        CleanUpCallReturnStack(returnType);
+    }
+
+    private void PrepareCallArgsArray(int callArgsLocalIndex, int callTempLocalIndex, int paramCount)
+    {
+        _il.Emit(OpCodes.Ldc_I4, paramCount); // num_args = # of args
         _il.Emit(OpCodes.Newarr, typeof(object)); // new object[num_args]
         _il.Emit(OpCodes.Stloc, callArgsLocalIndex); // store array in local
 
         var stackValues = _stack.ToList();
 
-        if (stackValues.Count < funcInstance.ParameterTypes.Length)
+        if (stackValues.Count < paramCount)
             throw new InvalidOperationException("Stack would underflow");
 
         // Push args onto array in reverse order.
         // The stack at this point for a call of the form func(1, 2, 3) is 1, 2, 3
         // Since we can only pop the args off the stack in reverse order,
         // we need to store them in a temp local one by one and then set the array element.
-        for (int paramIndex = funcInstance.ParameterTypes.Length - 1, stackIndex = 0;
+        for (int paramIndex = paramCount - 1, stackIndex = 0;
              paramIndex >= 0;
              paramIndex--, stackIndex++)
         {
@@ -236,6 +283,15 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             _il.Emit(OpCodes.Stelem_Ref); // args[index] = arg
             _stack.Pop();
         }
+    }
+
+    private void Call(WasmInstruction instruction, 
+        int callArgsLocalIndex, 
+        int callTempLocalIndex)
+    {
+        var (funcInstance, funcIndex) = GetFunctionInstanceForCall(module, instruction);
+
+        PrepareCallArgsArray(callArgsLocalIndex, callTempLocalIndex, funcInstance.ParameterTypes.Length);
 
         _il.Emit(OpCodes.Ldarg_0); // load module instance
         _il.Emit(OpCodes.Ldc_I4, funcIndex); // load function index
@@ -249,14 +305,19 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         // stack now contains return value
         _stack.Push(funcInstance.ReturnType);
 
-        if (funcInstance.ReturnType == typeof(void))
+        CleanUpCallReturnStack(funcInstance.ReturnType);
+    }
+
+    private void CleanUpCallReturnStack(Type returnType)
+    {
+        if (returnType == typeof(void))
         {
             _il.Emit(OpCodes.Pop); // pop return value
             _stack.Pop();
         }
-        else if (funcInstance.ReturnType.IsValueType)
+        else if (returnType.IsValueType)
         {
-            _il.Emit(OpCodes.Unbox_Any, funcInstance.ReturnType); // unbox return value
+            _il.Emit(OpCodes.Unbox_Any, returnType); // unbox return value
         }
     }
 

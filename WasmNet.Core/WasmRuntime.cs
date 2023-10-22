@@ -39,6 +39,8 @@ public class WasmRuntime
     private ModuleInstance CompileModule(WasmModule module)
     {
         var moduleInstance = new ModuleInstance(module, Store);
+        
+        EvaluateModuleTypes(module, moduleInstance);
 
         EvaluateModuleImports(module, moduleInstance);
         
@@ -51,6 +53,19 @@ public class WasmRuntime
         CompileModuleFunctions(module, moduleInstance);
 
         return moduleInstance;
+    }
+
+    private void EvaluateModuleTypes(WasmModule module, ModuleInstance moduleInstance)
+    {
+        if (module.TypeSection is not { } typeSection)
+        {
+            return;
+        }
+
+        foreach (var type in typeSection.Types)
+        {
+            moduleInstance.AddType(type);
+        }
     }
 
     private void EvaluateModuleMemory(WasmModule module, ModuleInstance moduleInstance)
