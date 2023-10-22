@@ -42,6 +42,8 @@ public class WasmRuntime
         
         EvaluateModuleTypes(module, moduleInstance);
 
+        EvaluateModuleTables(module, moduleInstance);
+        
         EvaluateModuleImports(module, moduleInstance);
         
         EvaluateModuleMemory(module, moduleInstance);
@@ -53,6 +55,22 @@ public class WasmRuntime
         CompileModuleFunctions(module, moduleInstance);
 
         return moduleInstance;
+    }
+
+    private void EvaluateModuleTables(WasmModule module, ModuleInstance moduleInstance)
+    {
+        if (module.TableSection is not { } tableSection)
+        {
+            return;
+        }
+
+        foreach (var table in tableSection.Tables)
+        {
+            var tableInstance = new Table(table.Limits.Min, table.Limits.Max);
+
+            var tableAddr = Store.AddTable(tableInstance);
+            moduleInstance.AddTableAddress(tableAddr);
+        }
     }
 
     private void EvaluateModuleTypes(WasmModule module, ModuleInstance moduleInstance)
