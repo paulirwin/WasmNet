@@ -15,7 +15,8 @@ echo "WABT URL: $WABT_URL"
 
 mkdir -p wabt
 curl -o wabt/$WABT_TAR -L $WABT_URL
-tar -zxvf wabt/$WABT_TAR -C ./wabt --strip-components 1
+tar -zxf wabt/$WABT_TAR -C ./wabt --strip-components 1
 
-export PATH=$PATH:$PWD/wabt/bin
+export PATH="${PATH:+${PATH}:}$PWD/wabt/bin"
+wat2wasm --version
 
