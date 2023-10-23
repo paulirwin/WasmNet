@@ -89,12 +89,6 @@ public class WasmReader
         };
         
         var sectionEnd = _stream.Position;
-
-        if (length == 0)
-        {
-            // read FIXUP
-            length = ReadVarUInt32();
-        }
         
         if (sectionEnd - sectionStart != length)
         {
@@ -367,12 +361,6 @@ public class WasmReader
         var body = ReadExpression();
 
         var codeEnd = _stream.Position;
-
-        if (size == 0)
-        {
-            // read FIXUP
-            size = ReadVarUInt32();
-        }
 
         if (codeEnd - codeStart != size)
         {
