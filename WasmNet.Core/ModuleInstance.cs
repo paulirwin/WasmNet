@@ -154,4 +154,145 @@ public class ModuleInstance(WasmModule module, Store store)
 
         return new FunctionReference(address);
     }
+    
+    public void MemoryStore(int staticOffset, int value, int dynamicOffset, int storageSize)
+    {
+        // WASM spec section 4.4.7
+        
+        // 1. Let 𝐹 be the current frame.
+        // 2. Assert: due to validation, 𝐹.module.memaddrs[0] exists.
+        // 3. Let 𝑎 be the memory address 𝐹.module.memaddrs[0].
+        var a = _memoryAddresses[0];
+        
+        // 4. Assert: due to validation, 𝑆.mems[𝑎] exists.
+        // 5. Let mem be the memory instance 𝑆.mems[𝑎].
+        var mem = Store.Memory[a];
+        
+        // 6. Assert: due to validation, a value of value type 𝑡 is on the top of the stack.
+        // 7. Pop the value 𝑡.const 𝑐 from the stack.
+        //    (this is the value parameter)
+        var c = value;
+        
+        // 8. Assert: due to validation, a value of value type i32 is on the top of the stack.
+        // 9. Pop the value i32.const 𝑖 from the stack.
+        //    (this is the staticOffset parameter)
+        var i = staticOffset;
+        
+        // 10. Let ea be the integer 𝑖 + memarg.offset.
+        var ea = i + dynamicOffset;
+        
+        // 11. If 𝑁 is not part of the instruction, then:
+        //      a. Let 𝑁 be the bit width |𝑡| of number type 𝑡.
+        //     (this is the storageSize parameter)
+        var N = storageSize;
+
+        if (N == 0)
+        {
+            N = 32;
+        }
+        
+        // 12. If ea + 𝑁/8 is larger than the length of mem.data, then:
+        //      a. Trap.
+        if (ea + N / 8 > mem.Size)
+        {
+            throw new InvalidOperationException("Memory store out of bounds");
+        }
+        
+        // 13. If 𝑁 is part of the instruction, then:
+        //      a. Let 𝑛 be the result of computing wrap_|𝑡|,𝑁 (𝑐).
+        //      b. Let 𝑏* be the byte sequence bytes_i𝑁(𝑛).
+        // 14. Else:
+        //      a. Let 𝑏* be the byte sequence bytes_𝑡(𝑐).
+        byte[] b;
+        
+        if (storageSize != 0)
+        {
+            var n = Wrap(c, N);
+            b = BitConverter.GetBytes(n);
+        }
+        else
+        {
+            b = BitConverter.GetBytes(c);
+        }
+        
+        // 15. Replace the bytes mem.data[ea : 𝑁/8] with 𝑏*.
+        mem.Write(ea, b);
+    }
+
+    public int MemoryLoad(int staticOffset, int dynamicOffset, int storageSize, bool signExtend)
+    {
+        // 1. Let 𝐹 be the current frame.
+        // 2. Assert: due to validation, 𝐹.module.memaddrs[0] exists.
+        // 3. Let 𝑎 be the memory address 𝐹.module.memaddrs[0].
+        var a = _memoryAddresses[0];
+        
+        // 4. Assert: due to validation, 𝑆.mems[𝑎] exists.
+        // 5. Let mem be the memory instance 𝑆.mems[𝑎].
+        var mem = Store.Memory[a];
+        
+        // 6. Assert: due to validation, a value of value type i32 is on the top of the stack.
+        // 7. Pop the value i32.const 𝑖 from the stack.
+        //    (this is the staticOffset parameter)
+        var i = staticOffset;
+        
+        // 8. Let ea be the integer 𝑖 + memarg.offset.
+        var ea = i + dynamicOffset;
+        
+        // 9. If 𝑁 is not part of the instruction, then:
+        //      a. Let 𝑁 be the bit width |𝑡| of number type 𝑡.
+        //     (this is the storageSize parameter)
+        var N = storageSize;
+        
+        if (N == 0)
+        {
+            N = 32;
+        }
+        
+        // 10. If ea + 𝑁/8 is larger than the length of mem.data, then:
+        //      a. Trap.
+        if (ea + N / 8 > mem.Size)
+        {
+            throw new InvalidOperationException("Memory load out of bounds");
+        }
+        
+        // 11. Let 𝑏* be the byte sequence mem.data[ea : 𝑁/8].
+        var b = mem.Read(ea, N / 8);
+        
+        // 12. If 𝑁 and sx are part of the instruction, then:
+        //      a. Let 𝑛 be the integer for which bytes_i𝑁(𝑛) = 𝑏*.
+        //      b. Let 𝑐 be the result of computing extendsx_𝑁,|𝑡|(𝑛).
+        // 13. Else:
+        //      a. Let 𝑐 be the constant for which bytes_𝑡(𝑐) = 𝑏*.
+        int c;
+        
+        if (storageSize != 0 && signExtend)
+        {
+            var n = BitConverter.ToInt32(b);
+            c = SignExtend(n, N);
+        }
+        else
+        {
+            c = BitConverter.ToInt32(b);
+        }
+        
+        // 14. Push the value 𝑡.const 𝑐 to the stack.
+        return c;
+    }
+
+    private static int SignExtend(int i, int N)
+    {
+        var mask = (int)Math.Pow(2, N) - 1;
+        var signBit = (int)Math.Pow(2, N - 1);
+        var sign = i & signBit;
+        var value = i & mask;
+
+        if (sign != 0)
+        {
+            value |= ~mask;
+        }
+
+        return value;
+    }
+
+    private static int Wrap(int i, int N) => i % (int)Math.Pow(2, N);
 }

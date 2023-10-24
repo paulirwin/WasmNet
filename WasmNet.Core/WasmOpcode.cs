@@ -2,6 +2,7 @@ namespace WasmNet.Core;
 
 public enum WasmOpcode
 {
+    Block = 0x02,
     End = 0x0B,
     Return = 0x0F,
     Call = 0x10,
@@ -10,6 +11,8 @@ public enum WasmOpcode
     LocalSet = 0x21,
     GlobalGet = 0x23,
     GlobalSet = 0x24,
+    I32Load = 0x28,
+    I32Store = 0x36,
     I32Const = 0x41,
     I64Const = 0x42,
     F32Const = 0x43,

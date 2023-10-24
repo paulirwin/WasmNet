@@ -452,6 +452,19 @@ public class WasmReader
                     new WasmI32Value(x),
                     new WasmI32Value(y));
             }
+            case WasmOpcode.I32Store:
+            case WasmOpcode.I32Load:
+            {
+                var align = (int)ReadVarUInt32();
+                var offset = (int)ReadVarUInt32();
+                return new WasmInstruction(opcode,
+                    new WasmI32Value(offset),
+                    new WasmI32Value(align));
+            }
+            case WasmOpcode.Block:
+            {
+                throw new NotImplementedException();
+            }
             case WasmOpcode.I32Add:
             case WasmOpcode.I32Sub:
             case WasmOpcode.I32Mul:
