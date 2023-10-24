@@ -155,7 +155,7 @@ public class ModuleInstance(WasmModule module, Store store)
         return new FunctionReference(address);
     }
     
-    public void MemoryStore(int staticOffset, int value, int dynamicOffset, int storageSize)
+    public void MemoryStore(int dynamicOffset, int value, int staticOffset, int storageSize)
     {
         // WASM spec section 4.4.7
         
@@ -175,11 +175,11 @@ public class ModuleInstance(WasmModule module, Store store)
         
         // 8. Assert: due to validation, a value of value type i32 is on the top of the stack.
         // 9. Pop the value i32.const 𝑖 from the stack.
-        //    (this is the staticOffset parameter)
-        var i = staticOffset;
+        //    (this is the dynamicOffset parameter)
+        var i = dynamicOffset;
         
         // 10. Let ea be the integer 𝑖 + memarg.offset.
-        var ea = i + dynamicOffset;
+        var ea = i + staticOffset;
         
         // 11. If 𝑁 is not part of the instruction, then:
         //      a. Let 𝑁 be the bit width |𝑡| of number type 𝑡.
@@ -219,7 +219,7 @@ public class ModuleInstance(WasmModule module, Store store)
         mem.Write(ea, b);
     }
 
-    public int MemoryLoad(int staticOffset, int dynamicOffset, int storageSize, bool signExtend)
+    public int MemoryLoad(int dynamicOffset, int staticOffset, int storageSize, bool signExtend)
     {
         // 1. Let 𝐹 be the current frame.
         // 2. Assert: due to validation, 𝐹.module.memaddrs[0] exists.
@@ -232,11 +232,11 @@ public class ModuleInstance(WasmModule module, Store store)
         
         // 6. Assert: due to validation, a value of value type i32 is on the top of the stack.
         // 7. Pop the value i32.const 𝑖 from the stack.
-        //    (this is the staticOffset parameter)
-        var i = staticOffset;
+        //    (this is the dynamicOffset parameter)
+        var i = dynamicOffset;
         
         // 8. Let ea be the integer 𝑖 + memarg.offset.
-        var ea = i + dynamicOffset;
+        var ea = i + staticOffset;
         
         // 9. If 𝑁 is not part of the instruction, then:
         //      a. Let 𝑁 be the bit width |𝑡| of number type 𝑡.

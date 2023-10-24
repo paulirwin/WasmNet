@@ -179,8 +179,8 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         _il.Emit(OpCodes.Stloc, _memoryStoreLoadOffsetLocalIndex); // store offset in temp local
         
         _il.Emit(OpCodes.Ldarg_0); // load module instance
-        _il.Emit(OpCodes.Ldloc, _memoryStoreLoadOffsetLocalIndex); // load static offset from temp local
-        _il.Emit(OpCodes.Ldc_I4, offset); // load dynamic offset
+        _il.Emit(OpCodes.Ldloc, _memoryStoreLoadOffsetLocalIndex); // load dynamic offset from temp local
+        _il.Emit(OpCodes.Ldc_I4, offset); // load static offset
         _il.Emit(OpCodes.Ldc_I4_0); // TODO: support storage size opcodes i.e. i32.store8
         _il.Emit(OpCodes.Ldc_I4_0); // TODO: support signExtend, for now assume false
         _il.Emit(OpCodes.Callvirt,
@@ -220,9 +220,9 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         _il.Emit(OpCodes.Stloc, _memoryStoreLoadOffsetLocalIndex); // store offset in temp local
         
         _il.Emit(OpCodes.Ldarg_0); // load module instance
-        _il.Emit(OpCodes.Ldloc, _memoryStoreLoadOffsetLocalIndex); // load offset
-        _il.Emit(OpCodes.Ldloc, _memoryStoreIntLocalIndex); // load arg from temp local
-        _il.Emit(OpCodes.Ldc_I4, offset); // load offset
+        _il.Emit(OpCodes.Ldloc, _memoryStoreLoadOffsetLocalIndex); // load dynamic offset
+        _il.Emit(OpCodes.Ldloc, _memoryStoreIntLocalIndex); // load value from temp local
+        _il.Emit(OpCodes.Ldc_I4, offset); // load static offset
         _il.Emit(OpCodes.Ldc_I4_0); // TODO: support storage size opcodes i.e. i32.store8
         _il.Emit(OpCodes.Callvirt,
             typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.MemoryStore))!); // store in memory
