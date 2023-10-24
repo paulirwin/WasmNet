@@ -3,6 +3,7 @@ namespace WasmNet.Core;
 public enum WasmOpcode
 {
     End = 0x0B,
+    Return = 0x0F,
     Call = 0x10,
     CallIndirect = 0x11,
     LocalGet = 0x20,

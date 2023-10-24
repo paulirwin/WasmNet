@@ -57,7 +57,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
     {
         switch (instruction.Opcode)
         {
-            case WasmOpcode.End:
+            case WasmOpcode.End or WasmOpcode.Return:
                 Ret();
                 break;
             case WasmOpcode.I32Const:
