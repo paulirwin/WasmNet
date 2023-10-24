@@ -1,10 +1,8 @@
 namespace WasmNet.Core;
 
-public abstract class WasmValueType
+public abstract class WasmValue
 {
     public abstract override bool Equals(object? other);
     
     public abstract override int GetHashCode();
-    
-    public abstract Type DotNetType { get; }
 }

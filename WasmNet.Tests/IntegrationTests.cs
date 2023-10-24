@@ -341,23 +341,36 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
 
         private static object ConvertValue(WasmValueType type, string part)
         {
-            return type switch
+            if (type.Equals(WasmNumberType.I32))
             {
-                WasmNumberType { Kind: WasmNumberTypeKind.I32 } => (object)int.Parse(part),
-                WasmNumberType { Kind: WasmNumberTypeKind.I64 } => long.Parse(part),
-                WasmNumberType { Kind: WasmNumberTypeKind.F32 } => float.Parse(part),
-                WasmNumberType { Kind: WasmNumberTypeKind.F64 } => double.Parse(part),
-                _ => throw new NotImplementedException("Need to implement ConvertValue for type")
-            };
+                return int.Parse(part);
+            }
+
+            if (type.Equals(WasmNumberType.I64))
+            {
+                return long.Parse(part);
+            }
+
+            if (type.Equals(WasmNumberType.F32))
+            {
+                return float.Parse(part);
+            }
+
+            if (type.Equals(WasmNumberType.F64))
+            {
+                return double.Parse(part);
+            }
+
+            throw new NotImplementedException($"Unknown type: {type}");
         }
 
         private static WasmValueType TypeNameToValueType(string name) =>
             name switch
             {
-                "i32" => new WasmNumberType(WasmNumberTypeKind.I32),
-                "i64" => new WasmNumberType(WasmNumberTypeKind.I64),
-                "f32" => new WasmNumberType(WasmNumberTypeKind.F32),
-                "f64" => new WasmNumberType(WasmNumberTypeKind.F64),
+                "i32" => WasmNumberType.I32,
+                "i64" => WasmNumberType.I64,
+                "f32" => WasmNumberType.F32,
+                "f64" => WasmNumberType.F64,
                 _ => throw new NotImplementedException($"Unknown type name: {name}")
             };
     }

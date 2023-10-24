@@ -402,57 +402,55 @@ public class WasmReader
             case WasmOpcode.I32Const:
             {
                 var arg = ReadVarInt32();
-                return new WasmInstruction(WasmOpcode.I32Const, new WasmNumberValue<int>(WasmNumberTypeKind.I32, arg));
+                return new WasmInstruction(WasmOpcode.I32Const, new WasmI32Value(arg));
             }
             case WasmOpcode.I64Const:
             {
                 var arg = ReadVarInt64();
-                return new WasmInstruction(WasmOpcode.I64Const, new WasmNumberValue<long>(WasmNumberTypeKind.I64, arg));
+                return new WasmInstruction(WasmOpcode.I64Const, new WasmI64Value(arg));
             }
             case WasmOpcode.F32Const:
             {
                 var arg = ReadVarFloat32();
-                return new WasmInstruction(WasmOpcode.F32Const,
-                    new WasmNumberValue<float>(WasmNumberTypeKind.F32, arg));
+                return new WasmInstruction(WasmOpcode.F32Const, new WasmF32Value(arg));
             }
             case WasmOpcode.F64Const:
             {
                 var arg = ReadVarFloat64();
-                return new WasmInstruction(WasmOpcode.F64Const,
-                    new WasmNumberValue<double>(WasmNumberTypeKind.F64, arg));
+                return new WasmInstruction(WasmOpcode.F64Const, new WasmF64Value(arg));
             }
             case WasmOpcode.LocalSet:
             {
                 var arg = (int)ReadVarUInt32();
-                return new WasmInstruction(WasmOpcode.LocalSet, new WasmNumberValue<int>(WasmNumberTypeKind.I32, arg));
+                return new WasmInstruction(WasmOpcode.LocalSet, new WasmI32Value(arg));
             }
             case WasmOpcode.LocalGet:
             {
                 var arg = (int)ReadVarUInt32();
-                return new WasmInstruction(WasmOpcode.LocalGet, new WasmNumberValue<int>(WasmNumberTypeKind.I32, arg));
+                return new WasmInstruction(WasmOpcode.LocalGet, new WasmI32Value(arg));
             }
             case WasmOpcode.GlobalGet:
             {
                 var arg = (int)ReadVarUInt32();
-                return new WasmInstruction(WasmOpcode.GlobalGet, new WasmNumberValue<int>(WasmNumberTypeKind.I32, arg));
+                return new WasmInstruction(WasmOpcode.GlobalGet, new WasmI32Value(arg));
             }
             case WasmOpcode.GlobalSet:
             {
                 var arg = (int)ReadVarUInt32();
-                return new WasmInstruction(WasmOpcode.GlobalSet, new WasmNumberValue<int>(WasmNumberTypeKind.I32, arg));
+                return new WasmInstruction(WasmOpcode.GlobalSet, new WasmI32Value(arg));
             }
             case WasmOpcode.Call:
             {
                 var arg = (int)ReadVarUInt32();
-                return new WasmInstruction(WasmOpcode.Call, new WasmNumberValue<int>(WasmNumberTypeKind.I32, arg));
+                return new WasmInstruction(WasmOpcode.Call, new WasmI32Value(arg));
             }
             case WasmOpcode.CallIndirect:
             {
                 var y = (int)ReadVarUInt32();
                 var x = (int)ReadVarUInt32();
                 return new WasmInstruction(WasmOpcode.CallIndirect,
-                    new WasmNumberValue<int>(WasmNumberTypeKind.I32, x),
-                    new WasmNumberValue<int>(WasmNumberTypeKind.I32, y));
+                    new WasmI32Value(x),
+                    new WasmI32Value(y));
             }
             case WasmOpcode.I32Add:
             case WasmOpcode.I32Sub:
@@ -549,7 +547,7 @@ public class WasmReader
                 {
                     Instructions = new List<WasmInstruction> 
                     {
-                        new(WasmOpcode.RefFunc, new WasmNumberValue<int>(WasmNumberTypeKind.I32, (int)i)),
+                        new(WasmOpcode.RefFunc, new WasmI32Value((int)i)),
                         new(WasmOpcode.End),
                     }
                 }).ToList();
@@ -736,10 +734,10 @@ public class WasmReader
 
         return type switch
         {
-            0x7F => new WasmNumberType(WasmNumberTypeKind.I32),
-            0x7E => new WasmNumberType(WasmNumberTypeKind.I64),
-            0x7D => new WasmNumberType(WasmNumberTypeKind.F32),
-            0x7C => new WasmNumberType(WasmNumberTypeKind.F64),
+            0x7F => WasmNumberType.I32,
+            0x7E => WasmNumberType.I64,
+            0x7D => WasmNumberType.F32,
+            0x7C => WasmNumberType.F64,
             _ => throw new Exception("Unsupported WASM value type.")
         };
     }

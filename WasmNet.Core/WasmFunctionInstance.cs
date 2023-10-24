@@ -16,10 +16,9 @@ public class WasmFunctionInstance(WasmType type, ModuleInstance module, WasmCode
     public Type ReturnType =>
         Type.Results.Count == 0
             ? typeof(void)
-            : Type.Results[0].MapWasmTypeToDotNetType();
+            : Type.Results[0].DotNetType;
 
-    public Type[] ParameterTypes =>
-        Type.Parameters.Select(x => x.MapWasmTypeToDotNetType()).ToArray();
+    public Type[] ParameterTypes => Type.Parameters.Select(x => x.DotNetType).ToArray();
 
     public object? Invoke(params object?[]? args)
     {

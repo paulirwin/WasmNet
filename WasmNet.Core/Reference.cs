@@ -1,3 +1,3 @@
 namespace WasmNet.Core;
 
-public abstract class Reference : WasmReferenceType;
+public abstract class Reference : WasmValue;

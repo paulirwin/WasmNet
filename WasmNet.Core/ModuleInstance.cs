@@ -138,7 +138,7 @@ public class ModuleInstance(WasmModule module, Store store)
             throw new InvalidOperationException("Function parameter count mismatch");
         }
 
-        if (function.ReturnType != functionType.Results[0].MapWasmTypeToDotNetType())
+        if (function.ReturnType != functionType.Results[0].DotNetType)
         {
             throw new InvalidOperationException("Function return type mismatch");
         }

@@ -162,7 +162,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         {
             for (var i = 0; i < local.Count; i++)
             {
-                _il.DeclareLocal(local.Type.MapWasmTypeToDotNetType());
+                _il.DeclareLocal(local.Type.DotNetType);
             }
         }
     }
@@ -177,7 +177,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
         var globalIndex = numberValue.Value;
         var globalRef = module.GetGlobal(globalIndex);
-        var globalType = globalRef.Global.Type.MapWasmTypeToDotNetType();
+        var globalType = globalRef.Global.Type.DotNetType;
 
         var argType = _stack.Pop();
 
@@ -217,7 +217,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         var globalIndex = numberValue.Value;
 
         var globalRef = module.GetGlobal(globalIndex);
-        var globalType = globalRef.Global.Type.MapWasmTypeToDotNetType();
+        var globalType = globalRef.Global.Type.DotNetType;
 
         _il.Emit(OpCodes.Ldarg_0); // load module instance
         _il.Emit(OpCodes.Ldc_I4, globalIndex); // load global index
@@ -227,7 +227,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
         if (globalType.IsValueType)
         {
-            _il.Emit(OpCodes.Unbox_Any, globalRef.Global.Type.MapWasmTypeToDotNetType()); // unbox global value
+            _il.Emit(OpCodes.Unbox_Any, globalRef.Global.Type.DotNetType); // unbox global value
         }
 
         _stack.Push(globalType);
@@ -248,7 +248,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             throw new InvalidOperationException("call_indirect expects second argument to be type index");
         
         var type = module.Types[typeIndexValue];
-        var returnType = type.Results.Count == 0 ? typeof(void) : type.Results[0].MapWasmTypeToDotNetType();
+        var returnType = type.Results.Count == 0 ? typeof(void) : type.Results[0].DotNetType;
         
         PrepareCallArgsArray(callArgsLocalIndex, callTempLocalIndex, type.Parameters.Count);
 
@@ -371,12 +371,12 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         if (numberValue.Value < type.Parameters.Count)
         {
             _il.Emit(OpCodes.Ldarg, numberValue.Value + 1);
-            _stack.Push(type.Parameters[numberValue.Value].MapWasmTypeToDotNetType());
+            _stack.Push(type.Parameters[numberValue.Value].DotNetType);
         }
         else
         {
             _il.Emit(OpCodes.Ldloc, numberValue.Value - type.Parameters.Count);
-            _stack.Push(code.Locals[numberValue.Value - type.Parameters.Count].Type.MapWasmTypeToDotNetType());
+            _stack.Push(code.Locals[numberValue.Value - type.Parameters.Count].Type.DotNetType);
         }
     }
 

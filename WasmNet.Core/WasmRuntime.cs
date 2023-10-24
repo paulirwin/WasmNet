@@ -126,14 +126,14 @@ public class WasmRuntime
         var offsetExpr = element.Offset ?? throw new InvalidOperationException("Element offset expression is null");
         CompileExpression(moduleInstance,
             moduleInstance.EmitAssembly.Value.ElementHolder,
-            new WasmNumberType(WasmNumberTypeKind.I32),
+            WasmNumberType.I32,
             offsetExpr);
 
         foreach (var initExpr in element.Init)
         {
             CompileExpression(moduleInstance,
                 moduleInstance.EmitAssembly.Value.ElementHolder,
-                new WasmReferenceType(),
+                WasmReferenceType.FuncRef,
                 initExpr);
         }
     }
@@ -243,7 +243,7 @@ public class WasmRuntime
         var offsetExpr = data.OffsetExpr ?? throw new InvalidOperationException("Data offset expression is null");
         CompileExpression(moduleInstance,
             moduleInstance.EmitAssembly.Value.DataHolder,
-            new WasmNumberType(WasmNumberTypeKind.I32),
+            WasmNumberType.I32,
             offsetExpr);
     }
 
@@ -298,7 +298,7 @@ public class WasmRuntime
         var builder = moduleInstance.EmitAssembly.Value.CreateGlobalBuilder(
             typeBuilder,
             expr.EmitName,
-            valueType.MapWasmTypeToDotNetType()
+            valueType.DotNetType
         );
 
         var funcType = new WasmType

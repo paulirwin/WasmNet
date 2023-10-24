@@ -2,7 +2,21 @@ namespace WasmNet.Core;
 
 public class WasmReferenceType : WasmValueType
 {
-    public override bool Equals(object? other) => other is WasmReferenceType;
+    public static readonly WasmReferenceType FuncRef = new(typeof(FunctionReference));
+    // TODO: ExternRef
 
-    public override int GetHashCode() => 0;
+    private WasmReferenceType(Type dotNetType)
+    {
+        DotNetType = dotNetType;
+    }
+    
+    public override bool Equals(object? other)
+    {
+        if (other is not WasmReferenceType type) return false;
+        return DotNetType == type.DotNetType;
+    }
+
+    public override int GetHashCode() => DotNetType.GetHashCode();
+
+    public override Type DotNetType { get; }
 }
