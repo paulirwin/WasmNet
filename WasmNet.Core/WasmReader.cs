@@ -490,6 +490,7 @@ public class WasmReader
             case WasmOpcode.I32Shl:
             case WasmOpcode.I32ShrU:
             case WasmOpcode.I32ShrS:
+            case WasmOpcode.I32Eqz:
             case WasmOpcode.I32Eq:
             case WasmOpcode.I64Add:
             case WasmOpcode.I64Sub:
@@ -504,6 +505,7 @@ public class WasmReader
             case WasmOpcode.I64Shl:
             case WasmOpcode.I64ShrU:
             case WasmOpcode.I64ShrS:
+            case WasmOpcode.I64Eqz:
             case WasmOpcode.I64Eq:
             case WasmOpcode.F32Add:
             case WasmOpcode.F32Sub:

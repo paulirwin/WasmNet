@@ -125,6 +125,12 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.I32ShrU or WasmOpcode.I64ShrU:
                 ShrUn(instruction);
                 break;
+            case WasmOpcode.I32Eqz:
+                I32Eqz();
+                break;
+            case WasmOpcode.I64Eqz:
+                I64Eqz();
+                break;
             case WasmOpcode.I32Eq or WasmOpcode.I64Eq:
                 Ceq();
                 break;
@@ -164,6 +170,22 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             default:
                 throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
+    }
+
+    private void I32Eqz()
+    {
+        _il.Emit(OpCodes.Ldc_I4_0);
+        _il.Emit(OpCodes.Ceq);
+        _stack.Pop();
+        _stack.Push(typeof(bool));
+    }
+    
+    private void I64Eqz()
+    {
+        _il.Emit(OpCodes.Ldc_I8, 0L);
+        _il.Emit(OpCodes.Ceq);
+        _stack.Pop();
+        _stack.Push(typeof(bool));
     }
 
     private void BrIf(WasmInstruction instruction)
