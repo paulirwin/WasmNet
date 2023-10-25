@@ -61,13 +61,16 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         {
             CompileInstruction(instruction);
         }
+
+        // WASM 0x0b is the end opcode, which is equivalent to a return
+        Ret();
     }
 
     private void CompileInstruction(WasmInstruction instruction)
     {
         switch (instruction.Opcode)
         {
-            case WasmOpcode.End or WasmOpcode.Return:
+            case WasmOpcode.Return:
                 Ret();
                 break;
             case WasmOpcode.I32Const:
@@ -151,9 +154,38 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.I32Load:
                 MemoryLoad(instruction, typeof(int));
                 break;
+            case WasmOpcode.Block:
+                Block(instruction);
+                break;
             default:
                 throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
+    }
+
+    private void Block(WasmInstruction instruction)
+    {
+        if (instruction.Operands.Count != 2)
+            throw new InvalidOperationException();
+
+        if (instruction.Operands[0] is not WasmBlockType blockType)
+            throw new InvalidOperationException();
+        
+        if (instruction.Operands[1] is not WasmExpressionValue { Expression: var expression })
+            throw new InvalidOperationException();
+
+        if (blockType is not WasmBlockType.EmptyBlockType)
+            throw new NotImplementedException("Only empty block types are supported");
+
+        var label = _il.DefineLabel();
+        _il.Emit(OpCodes.Nop);
+        
+        foreach (var exprInstruction in expression.Instructions)
+        {
+            CompileInstruction(exprInstruction);
+        }
+        
+        _il.Emit(OpCodes.Nop);
+        _il.MarkLabel(label);
     }
 
     private void MemoryLoad(WasmInstruction instruction, Type t)
@@ -161,10 +193,10 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         // stack should contain [i32]
         // i32 is the offset
         
-        if (instruction.Arguments.Count != 2)
+        if (instruction.Operands.Count != 2)
             throw new InvalidOperationException();
         
-        if (instruction.Arguments[0] is not WasmNumberValue<int> { Value: var offset })
+        if (instruction.Operands[0] is not WasmNumberValue<int> { Value: var offset })
             throw new InvalidOperationException();
         
         // ignore align for now
@@ -194,10 +226,10 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         // i32 is the offset
         // c is the value to store of type t
         
-        if (instruction.Arguments.Count != 2)
+        if (instruction.Operands.Count != 2)
             throw new InvalidOperationException();
         
-        if (instruction.Arguments[0] is not WasmNumberValue<int> { Value: var offset })
+        if (instruction.Operands[0] is not WasmNumberValue<int> { Value: var offset })
             throw new InvalidOperationException();
         
         // ignore align for now
@@ -230,10 +262,10 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void RefFunc(WasmInstruction instruction)
     {
-        if (instruction.Arguments.Count != 1)
+        if (instruction.Operands.Count != 1)
             throw new InvalidOperationException();
 
-        if (instruction.Arguments[0] is not WasmNumberValue<int> { Value: var numberValue })
+        if (instruction.Operands[0] is not WasmNumberValue<int> { Value: var numberValue })
             throw new InvalidOperationException();
 
         _il.Emit(OpCodes.Ldarg_0); // load module instance
@@ -257,10 +289,10 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void GlobalSet(WasmInstruction instruction)
     {
-        if (instruction.Arguments.Count != 1)
+        if (instruction.Operands.Count != 1)
             throw new InvalidOperationException();
 
-        if (instruction.Arguments[0] is not WasmNumberValue<int> numberValue)
+        if (instruction.Operands[0] is not WasmNumberValue<int> numberValue)
             throw new InvalidOperationException();
 
         var globalIndex = numberValue.Value;
@@ -296,10 +328,10 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void GlobalGet(WasmInstruction instruction)
     {
-        if (instruction.Arguments.Count != 1)
+        if (instruction.Operands.Count != 1)
             throw new InvalidOperationException();
 
-        if (instruction.Arguments[0] is not WasmNumberValue<int> numberValue)
+        if (instruction.Operands[0] is not WasmNumberValue<int> numberValue)
             throw new InvalidOperationException();
 
         var globalIndex = numberValue.Value;
@@ -323,13 +355,13 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void CallIndirect(WasmInstruction instruction)
     {
-        if (instruction.Arguments.Count != 2)
+        if (instruction.Operands.Count != 2)
             throw new InvalidOperationException("call_indirect expects two arguments");
         
-        if (instruction.Arguments[0] is not WasmNumberValue<int> { Value: var tableIndexValue })
+        if (instruction.Operands[0] is not WasmNumberValue<int> { Value: var tableIndexValue })
             throw new InvalidOperationException("call_indirect expects first argument to be table index");
         
-        if (instruction.Arguments[1] is not WasmNumberValue<int> { Value: var typeIndexValue })
+        if (instruction.Operands[1] is not WasmNumberValue<int> { Value: var typeIndexValue })
             throw new InvalidOperationException("call_indirect expects second argument to be type index");
         
         var type = module.Types[typeIndexValue];
@@ -425,10 +457,10 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void LocalSet(WasmInstruction instruction)
     {
-        if (instruction.Arguments.Count != 1)
+        if (instruction.Operands.Count != 1)
             throw new InvalidOperationException();
 
-        if (instruction.Arguments[0] is not WasmNumberValue<int> numberValue)
+        if (instruction.Operands[0] is not WasmNumberValue<int> numberValue)
             throw new InvalidOperationException();
 
         if (numberValue.Value < type.Parameters.Count)
@@ -445,10 +477,10 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void LocalGet(WasmInstruction instruction)
     {
-        if (instruction.Arguments.Count != 1)
+        if (instruction.Operands.Count != 1)
             throw new InvalidOperationException();
 
-        if (instruction.Arguments[0] is not WasmNumberValue<int> numberValue)
+        if (instruction.Operands[0] is not WasmNumberValue<int> numberValue)
             throw new InvalidOperationException();
 
         if (numberValue.Value < type.Parameters.Count)
@@ -650,10 +682,10 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void LdcR8(WasmInstruction instruction)
     {
-        if (instruction.Arguments.Count != 1)
+        if (instruction.Operands.Count != 1)
             throw new InvalidOperationException();
 
-        if (instruction.Arguments[0] is not WasmNumberValue<double> numberValue)
+        if (instruction.Operands[0] is not WasmNumberValue<double> numberValue)
             throw new InvalidOperationException();
 
         _il.Emit(OpCodes.Ldc_R8, numberValue.Value);
@@ -662,10 +694,10 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void LdcR4(WasmInstruction instruction)
     {
-        if (instruction.Arguments.Count != 1)
+        if (instruction.Operands.Count != 1)
             throw new InvalidOperationException();
 
-        if (instruction.Arguments[0] is not WasmNumberValue<float> numberValue)
+        if (instruction.Operands[0] is not WasmNumberValue<float> numberValue)
             throw new InvalidOperationException();
 
         _il.Emit(OpCodes.Ldc_R4, numberValue.Value);
@@ -674,10 +706,10 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void LdcI8(WasmInstruction instruction)
     {
-        if (instruction.Arguments.Count != 1)
+        if (instruction.Operands.Count != 1)
             throw new InvalidOperationException();
 
-        if (instruction.Arguments[0] is not WasmNumberValue<long> numberValue)
+        if (instruction.Operands[0] is not WasmNumberValue<long> numberValue)
             throw new InvalidOperationException();
 
         _il.Emit(OpCodes.Ldc_I8, numberValue.Value);
@@ -686,10 +718,10 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void LdcI4(WasmInstruction instruction)
     {
-        if (instruction.Arguments.Count != 1)
+        if (instruction.Operands.Count != 1)
             throw new InvalidOperationException();
 
-        if (instruction.Arguments[0] is not WasmNumberValue<int> numberValue)
+        if (instruction.Operands[0] is not WasmNumberValue<int> numberValue)
             throw new InvalidOperationException();
 
         _il.Emit(OpCodes.Ldc_I4, numberValue.Value);
@@ -710,10 +742,10 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         ModuleInstance module,
         WasmInstruction instruction)
     {
-        if (instruction.Arguments.Count != 1)
+        if (instruction.Operands.Count != 1)
             throw new InvalidOperationException();
 
-        if (instruction.Arguments[0] is not WasmNumberValue<int> numberValue)
+        if (instruction.Operands[0] is not WasmNumberValue<int> numberValue)
             throw new InvalidOperationException();
 
         return (module.GetFunction(numberValue.Value), numberValue.Value);

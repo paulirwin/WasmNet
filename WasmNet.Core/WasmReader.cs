@@ -377,13 +377,18 @@ public class WasmReader
     private Expression ReadExpression()
     {
         var body = new List<WasmInstruction>();
-        WasmInstruction instruction;
 
-        do
+        while (true)
         {
-            instruction = ReadInstruction();
+            var instruction = ReadInstruction();
+            
+            if (instruction.Opcode == WasmOpcode.End)
+            {
+                break;
+            }
+            
             body.Add(instruction);
-        } while (instruction.Opcode != WasmOpcode.End);
+        }
 
         return new Expression
         {
@@ -463,7 +468,9 @@ public class WasmReader
             }
             case WasmOpcode.Block:
             {
-                throw new NotImplementedException();
+                var blockType = ReadBlockType();
+                var expr = ReadExpression();
+                return new WasmInstruction(WasmOpcode.Block, blockType, new WasmExpressionValue(expr));
             }
             case WasmOpcode.I32Add:
             case WasmOpcode.I32Sub:
@@ -507,6 +514,26 @@ public class WasmReader
             default:
                 throw new Exception($"Unsupported WASM opcode: 0x{opcode:X}");
         }
+    }
+
+    private WasmBlockType ReadBlockType()
+    {
+        var type = _stream.ReadByte();
+
+        if (type == -1)
+        {
+            throw new Exception("Invalid WASM file.");
+        }
+
+        return type switch
+        {
+            0x40 => new WasmBlockType.EmptyBlockType(),
+            0x7F => new WasmBlockType.ValueTypeBlockType(WasmNumberType.I32),
+            0x7E => new WasmBlockType.ValueTypeBlockType(WasmNumberType.I64),
+            0x7D => new WasmBlockType.ValueTypeBlockType(WasmNumberType.F32),
+            0x7C => new WasmBlockType.ValueTypeBlockType(WasmNumberType.F64),
+            _ => throw new Exception($"Unsupported WASM block type: 0x{type:X}")
+        };
     }
 
     private WasmElementSection ReadElementSection()
@@ -561,7 +588,6 @@ public class WasmReader
                     Instructions = new List<WasmInstruction> 
                     {
                         new(WasmOpcode.RefFunc, new WasmI32Value((int)i)),
-                        new(WasmOpcode.End),
                     }
                 }).ToList();
                 break;
