@@ -472,6 +472,11 @@ public class WasmReader
                 var expr = ReadExpression();
                 return new WasmInstruction(WasmOpcode.Block, blockType, new WasmExpressionValue(expr));
             }
+            case WasmOpcode.BrIf:
+            {
+                var l = (int)ReadVarUInt32();
+                return new WasmInstruction(WasmOpcode.BrIf, new WasmI32Value(l));
+            }
             case WasmOpcode.I32Add:
             case WasmOpcode.I32Sub:
             case WasmOpcode.I32Mul:

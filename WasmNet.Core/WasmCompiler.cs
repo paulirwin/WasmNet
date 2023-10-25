@@ -6,6 +6,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 {
     private readonly ILGenerator _il = method.GetILGenerator();
     private readonly Stack<Type> _stack = new();
+    private readonly List<Label> _labels = new();
     
     private int _callArgsLocalIndex = -1, 
         _callTempLocalIndex = -1,
@@ -157,9 +158,38 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.Block:
                 Block(instruction);
                 break;
+            case WasmOpcode.BrIf:
+                BrIf(instruction);
+                break;
             default:
                 throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
+    }
+
+    private void BrIf(WasmInstruction instruction)
+    {
+        if (instruction.Operands.Count != 1)
+            throw new InvalidOperationException();
+
+        if (instruction.Operands[0] is not WasmNumberValue<int> { Value: var labelIndex })
+            throw new InvalidOperationException();
+
+        var label = _labels[labelIndex];
+        var type = _stack.Pop();
+        
+        if (type != typeof(int))
+        {
+            throw new InvalidOperationException($"BrIf expects i32 but stack contains {type}");
+        }
+        
+        _il.Emit(OpCodes.Brtrue, label);
+    }
+    
+    private Label CreateWasmVisibleLabel()
+    {
+        var label = _il.DefineLabel();
+        _labels.Add(label);
+        return label;
     }
 
     private void Block(WasmInstruction instruction)
@@ -176,7 +206,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         if (blockType is not WasmBlockType.EmptyBlockType)
             throw new NotImplementedException("Only empty block types are supported");
 
-        var label = _il.DefineLabel();
+        var label = CreateWasmVisibleLabel();
         _il.Emit(OpCodes.Nop);
         
         foreach (var exprInstruction in expression.Instructions)
