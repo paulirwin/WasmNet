@@ -14,7 +14,10 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         _callIndirectElementLocalIndex = -1,
         _memoryStoreLoadOffsetLocalIndex = -1,
         _memoryStoreIntLocalIndex = -1,
-        _memoryStoreLongLocalIndex = -1;
+        _memoryStoreLongLocalIndex = -1,
+        _memoryInitDestLocalIndex = -1,
+        _memoryInitSrcLocalIndex = -1,
+        _memoryInitCountLocalIndex = -1;
 
     public static void CompileFunction(ModuleInstance module, MethodBuilder method, WasmType type, WasmCode code)
     {
@@ -63,6 +66,18 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         {
             var intLocal = _il.DeclareLocal(typeof(long));   // temp long value
             _memoryStoreLongLocalIndex = intLocal.LocalIndex;
+        }
+        
+        if (code.Body.Instructions.Any(i => i.Opcode == WasmOpcode.MemoryInit))
+        {
+            var destLocal = _il.DeclareLocal(typeof(int));   // temp dest value
+            _memoryInitDestLocalIndex = destLocal.LocalIndex;
+            
+            var srcLocal = _il.DeclareLocal(typeof(int));   // temp src value
+            _memoryInitSrcLocalIndex = srcLocal.LocalIndex;
+            
+            var countLocal = _il.DeclareLocal(typeof(int));   // temp count value
+            _memoryInitCountLocalIndex = countLocal.LocalIndex;
         }
         
         foreach (var instruction in code.Body.Instructions)
@@ -214,9 +229,75 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.BrIf:
                 BrIf(instruction);
                 break;
+            case WasmOpcode.MemoryInit:
+                MemoryInit(instruction);
+                break;
+            case WasmOpcode.DataDrop:
+                DataDrop(instruction);
+                break;
             default:
                 throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
+    }
+
+    private void DataDrop(WasmInstruction instruction)
+    {
+        if (instruction.Operands.Count != 1)
+        {
+            throw new InvalidOperationException("data.drop expects one argument");
+        }
+        
+        if (instruction.Operands[0] is not WasmNumberValue<int> { Value: var x })
+        {
+            throw new InvalidOperationException("data.drop expects first argument to be the data index");
+        }
+
+        _il.Emit(OpCodes.Ldarg_0); // load module instance
+        _il.Emit(OpCodes.Ldc_I4, x); // load data index
+        
+        _il.Emit(OpCodes.Callvirt, typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.DataDrop))!);
+    }
+
+    private void MemoryInit(WasmInstruction instruction)
+    {
+        if (instruction.Operands.Count != 1)
+        {
+            throw new InvalidOperationException("memory.init expects one argument");
+        }
+        
+        if (instruction.Operands[0] is not WasmNumberValue<int> { Value: var x })
+        {
+            throw new InvalidOperationException("memory.init expects first argument to be the data index");
+        }
+
+        if (_stack.Pop() != typeof(int))
+        {
+            throw new InvalidOperationException("memory.init expects i32 count but stack contains {argType}");
+        }
+        
+        _il.Emit(OpCodes.Stloc, _memoryInitCountLocalIndex);
+        
+        if (_stack.Pop() != typeof(int))
+        {
+            throw new InvalidOperationException("memory.init expects i32 src but stack contains {argType}");
+        }
+        
+        _il.Emit(OpCodes.Stloc, _memoryInitSrcLocalIndex);
+        
+        if (_stack.Pop() != typeof(int))
+        {
+            throw new InvalidOperationException("memory.init expects i32 dest but stack contains {argType}");
+        }
+        
+        _il.Emit(OpCodes.Stloc, _memoryInitDestLocalIndex);
+        
+        _il.Emit(OpCodes.Ldarg_0); // load module instance
+        _il.Emit(OpCodes.Ldc_I4, x); // load data index
+        _il.Emit(OpCodes.Ldloc, _memoryInitDestLocalIndex); // load dest
+        _il.Emit(OpCodes.Ldloc, _memoryInitSrcLocalIndex); // load src
+        _il.Emit(OpCodes.Ldloc, _memoryInitCountLocalIndex); // load count
+        
+        _il.Emit(OpCodes.Callvirt, typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.MemoryInit))!);
     }
 
     private void ConvI8()

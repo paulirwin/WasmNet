@@ -193,34 +193,34 @@ public class WasmRuntime
         // pass 1: compile data
         foreach (var data in dataSection.Data)
         {
-            if (data.DataKind == WasmDataKind.Passive)
+            if (data.DataKind != WasmDataKind.Passive)
             {
-                continue;
+                CompileActiveDataRecord(moduleInstance, data);
             }
-
-            CompileDataRecord(moduleInstance, data);
         }
 
         // pass 2: evaluate data
-        foreach (var data in dataSection.Data)
+        foreach (var moduleData in dataSection.Data)
         {
-            if (data.DataKind == WasmDataKind.Passive)
-            {
-                continue;
-            }
+            var data = Data.FromWasmData(moduleData);
+            var da = Store.AddData(data);
+            moduleInstance.AddDataAddress(da);
 
-            EvaluateDataRecord(moduleInstance, data);
+            if (moduleData.DataKind != WasmDataKind.Passive)
+            {
+                EvaluateActiveDataRecord(moduleInstance, data);
+            }
         }
     }
 
-    private void EvaluateDataRecord(ModuleInstance moduleInstance, WasmData data)
+    private void EvaluateActiveDataRecord(ModuleInstance moduleInstance, Data data)
     {
-        if (data.OffsetExpr is not { } offsetExpr)
+        if (data.ModuleData.OffsetExpr is not { } offsetExpr)
         {
             throw new InvalidOperationException("Data offset expression is null");
         }
         
-        int memoryIndex = data.MemoryIndex ?? 0;
+        int memoryIndex = data.ModuleData.MemoryIndex ?? 0;
         var memoryAddress = moduleInstance.MemoryAddresses[memoryIndex];
         var memory = Store.Memory[memoryAddress];
 
@@ -233,12 +233,14 @@ public class WasmRuntime
             throw new InvalidOperationException("Data offset expression did not evaluate to an int");
         }
 
-        var dataBytes = data.Data;
+        var dataBytes = data.Value;
 
         memory.Write(offsetInt, dataBytes);
+        
+        data.Drop();
     }
 
-    private void CompileDataRecord(ModuleInstance moduleInstance, WasmData data)
+    private void CompileActiveDataRecord(ModuleInstance moduleInstance, WasmData data)
     {
         var offsetExpr = data.OffsetExpr ?? throw new InvalidOperationException("Data offset expression is null");
         CompileExpression(moduleInstance,

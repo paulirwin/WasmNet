@@ -6,6 +6,7 @@ public class Store
     private readonly List<Global> _globals = new();
     private readonly List<Memory> _memory = new();
     private readonly List<Table> _tables = new();
+    private readonly List<Data> _data = new();  
 
     public IReadOnlyList<IFunctionInstance> Functions => _functions;
     
@@ -14,6 +15,8 @@ public class Store
     public IReadOnlyList<Memory> Memory => _memory;
     
     public IReadOnlyList<Table> Tables => _tables;
+    
+    public IReadOnlyList<Data> Data => _data;
 
     public int AddFunction(IFunctionInstance function)
     {
@@ -40,6 +43,13 @@ public class Store
     {
         var index = _tables.Count;
         _tables.Add(table);
+        return index;
+    }
+    
+    public int AddData(Data data)
+    {
+        var index = _data.Count;
+        _data.Add(data);
         return index;
     }
 }

@@ -55,7 +55,16 @@ public class WasmReader
                 case WasmMemorySection memorySection:
                     module.MemorySection = memorySection;
                     break;
+                case WasmDataCountSection dataCountSection:
+                    module.DataCountSection = dataCountSection;
+                    break;
             }
+        }
+
+        if (module.DataCountSection is { Count: var dataCount }
+            && module.DataSection?.Data.Count != dataCount)
+        {
+            throw new InvalidOperationException("Data count section does not match data section length.");
         }
         
         return module;
@@ -85,6 +94,7 @@ public class WasmReader
             9 => ReadElementSection(),
             10 => ReadCodeSection(),
             11 => ReadDataSection(),
+            12 => ReadDataCountSection(),
             _ => throw new Exception($"Unsupported WASM section: 0x{id:X}")
         };
         
@@ -96,6 +106,16 @@ public class WasmReader
         }
 
         return section;
+    }
+
+    private WasmModuleSection ReadDataCountSection()
+    {
+        var count = ReadVarUInt32();
+
+        return new WasmDataCountSection
+        {
+            Count = (int)count,
+        };
     }
 
     private WasmModuleSection ReadMemorySection()
@@ -404,6 +424,8 @@ public class WasmReader
         {
             case (WasmOpcode)(-1):
                 throw new Exception("Invalid WASM file.");
+            case WasmOpcode.BulkMemory:
+                return ReadBulkMemoryInstruction();
             case WasmOpcode.I32Const:
             {
                 var arg = ReadVarInt32();
@@ -510,6 +532,35 @@ public class WasmReader
                 return new WasmInstruction(opcode);
             default:
                 throw new Exception($"Unsupported WASM opcode: 0x{opcode:X}");
+        }
+    }
+
+    // Bulk memory instructions starting with 0xFC have a sub-opcode form
+    private WasmInstruction ReadBulkMemoryInstruction()
+    {
+        var subOpcode = ReadVarUInt32();
+
+        switch (subOpcode)
+        {
+            case 8: // 0xFC 8:u32 𝑥:dataidx 0x00
+            {
+                var x = (int)ReadVarUInt32();
+                
+                if (_stream.ReadByte() != 0)
+                {
+                    throw new Exception("Invalid WASM file, expected 0x00 at end of memory.init instruction");
+                }
+                
+                return new WasmInstruction(WasmOpcode.MemoryInit, new WasmI32Value(x));
+            }
+            case 9: // 0xFC 9:u32 𝑥:dataidx
+            {
+                var x = (int)ReadVarUInt32();
+                
+                return new WasmInstruction(WasmOpcode.DataDrop, new WasmI32Value(x));
+            }
+            default:
+                throw new NotImplementedException($"Bulk memory sub-instruction {subOpcode} not yet implemented");
         }
     }
 

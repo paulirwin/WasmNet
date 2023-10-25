@@ -35,10 +35,13 @@ public class Memory(int minPages, int maxPages)
         bytes.CopyTo(_bytes, offset);
     }
 
-    public byte[] Read(int offset, int size)
+    public byte[] Read(int offset, int count)
     {
-        var bytes = new byte[size];
-        Array.Copy(_bytes, offset, bytes, 0, size);
+        var bytes = new byte[count];
+        Array.Copy(_bytes, offset, bytes, 0, count);
         return bytes;
     }
+
+    public void Write(int destOffset, byte[] bytes, int srcOffset, int count) 
+        => Array.Copy(bytes, srcOffset, _bytes, destOffset, count);
 }

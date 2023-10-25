@@ -7,6 +7,7 @@ public class ModuleInstance(WasmModule module, Store store)
     private readonly List<int> _memoryAddresses = new();
     private readonly List<(int Address, bool Mutable)> _globalAddresses = new();
     private readonly List<int> _tableAddresses = new();
+    private readonly List<int> _dataAddresses = new();
 
     public WasmModule Module { get; } = module;
 
@@ -21,6 +22,8 @@ public class ModuleInstance(WasmModule module, Store store)
     public IReadOnlyList<int> MemoryAddresses => _memoryAddresses;
     
     public IReadOnlyList<int> TableAddresses => _tableAddresses;
+    
+    public IReadOnlyList<int> DataAddresses => _dataAddresses;
     
     public Lazy<EmitAssembly> EmitAssembly { get; } = new(LazyThreadSafetyMode.ExecutionAndPublication);
     
@@ -91,6 +94,13 @@ public class ModuleInstance(WasmModule module, Store store)
     {
         var index = _tableAddresses.Count;
         _tableAddresses.Add(address);
+        return index;
+    }
+    
+    public int AddDataAddress(int address)
+    {
+        var index = _dataAddresses.Count;
+        _dataAddresses.Add(address);
         return index;
     }
     
@@ -354,6 +364,36 @@ public class ModuleInstance(WasmModule module, Store store)
         
         // 14. Push the value 𝑡.const 𝑐 to the stack.
         return c;
+    }
+
+    public void MemoryInit(int dataIndex, int dest, int src, int count)
+    {
+        // in the wasm spec, these args are called x, d, s, and n respectively
+        
+        var ma = _memoryAddresses[0];
+        var mem = Store.Memory[ma];
+        
+        var da = _dataAddresses[dataIndex];
+        var data = Store.Data[da];
+        
+        if (src + count > data.Value.Length)
+        {
+            throw new InvalidOperationException("Memory init out of bounds");
+        }
+        
+        if (dest + count > mem.Size)
+        {
+            throw new InvalidOperationException("Memory init out of bounds");
+        }
+        
+        mem.Write(dest, data.Value, src, count);
+    }
+    
+    public void DataDrop(int dataIndex)
+    {
+        var da = _dataAddresses[dataIndex];
+        var data = Store.Data[da];
+        data.Drop();
     }
 
     private byte[] PerformMemoryLoad(int dynamicOffset, int staticOffset, int storageSize)
