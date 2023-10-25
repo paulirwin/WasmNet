@@ -153,6 +153,9 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
                 Cgt();
                 I32Eqz();
                 break;
+            case WasmOpcode.I64ExtendI32S:
+                ConvI8();
+                break;
             case WasmOpcode.LocalGet:
                 LocalGet(instruction);
                 break;
@@ -198,6 +201,13 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             default:
                 throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
+    }
+
+    private void ConvI8()
+    {
+        _il.Emit(OpCodes.Conv_I8);
+        _stack.Pop();
+        _stack.Push(typeof(long));
     }
 
     private void Pop()

@@ -64,5 +64,6 @@ public enum WasmOpcode
     F64Sub = 0xA1,
     F64Mul = 0xA2,
     F64Div = 0xA3,
+    I64ExtendI32S = 0xAC,
     RefFunc = 0xD2,
 }
