@@ -430,7 +430,8 @@ public class WasmReader
                 or WasmOpcode.GlobalGet
                 or WasmOpcode.GlobalSet
                 or WasmOpcode.Call
-                or WasmOpcode.BrIf:
+                or WasmOpcode.BrIf
+                or WasmOpcode.Br:
             {
                 var arg = (int)ReadVarUInt32();
                 return new WasmInstruction(opcode, new WasmI32Value(arg));

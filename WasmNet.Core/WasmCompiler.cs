@@ -186,6 +186,9 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.Loop:
                 Loop(instruction);
                 break;
+            case WasmOpcode.Br:
+                Br(instruction);
+                break;
             case WasmOpcode.BrIf:
                 BrIf(instruction);
                 break;
@@ -218,6 +221,18 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         _stack.Push(typeof(int));
     }
 
+    private void Br(WasmInstruction instruction)
+    {
+        if (instruction.Operands.Count != 1)
+            throw new InvalidOperationException();
+
+        if (instruction.Operands[0] is not WasmNumberValue<int> { Value: var labelIndex })
+            throw new InvalidOperationException();
+
+        var label = _labels[labelIndex];
+        _il.Emit(OpCodes.Br, label);
+    }
+    
     private void BrIf(WasmInstruction instruction)
     {
         if (instruction.Operands.Count != 1)
