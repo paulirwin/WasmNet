@@ -137,6 +137,19 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.I32LtS:
                 Clt();
                 break;
+            case WasmOpcode.I32GtS:
+                Cgt();
+                break;
+            case WasmOpcode.I32GeS:
+                // >= is the same as !(<)
+                Clt();
+                I32Eqz();
+                break;
+            case WasmOpcode.I32LeS:
+                // <= is the same as !(>)
+                Cgt();
+                I32Eqz();
+                break;
             case WasmOpcode.LocalGet:
                 LocalGet(instruction);
                 break;
@@ -601,6 +614,14 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
     private void Clt()
     {
         _il.Emit(OpCodes.Clt);
+        _stack.Pop();
+        _stack.Pop();
+        _stack.Push(typeof(int));
+    }
+    
+    private void Cgt()
+    {
+        _il.Emit(OpCodes.Cgt);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(typeof(int));
