@@ -503,6 +503,7 @@ public class WasmReader
             case WasmOpcode.F64Div:
             case WasmOpcode.End:
             case WasmOpcode.Return:
+            case WasmOpcode.Drop:
                 return new WasmInstruction(opcode);
             default:
                 throw new Exception($"Unsupported WASM opcode: 0x{opcode:X}");

@@ -74,6 +74,9 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.Return:
                 Ret();
                 break;
+            case WasmOpcode.Drop:
+                Pop();
+                break;
             case WasmOpcode.I32Const:
                 LdcI4(instruction);
                 break;
@@ -195,6 +198,12 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             default:
                 throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
+    }
+
+    private void Pop()
+    {
+        _il.Emit(OpCodes.Pop);
+        _stack.Pop();
     }
 
     private void LocalTee(WasmInstruction instruction)
@@ -569,8 +578,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
     {
         if (returnType == typeof(void))
         {
-            _il.Emit(OpCodes.Pop); // pop return value
-            _stack.Pop();
+            Pop(); // pop return value
         }
         else if (returnType.IsValueType)
         {
