@@ -444,8 +444,10 @@ public class WasmReader
                     new WasmI32Value(x),
                     new WasmI32Value(y));
             }
-            case WasmOpcode.I32Store:
-            case WasmOpcode.I32Load:
+            case WasmOpcode.I32Store
+                or WasmOpcode.I32Load
+                or WasmOpcode.I64Store
+                or WasmOpcode.I64Load:
             {
                 var align = (int)ReadVarUInt32();
                 var offset = (int)ReadVarUInt32();
