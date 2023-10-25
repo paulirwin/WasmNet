@@ -424,30 +424,16 @@ public class WasmReader
                 var arg = ReadVarFloat64();
                 return new WasmInstruction(WasmOpcode.F64Const, new WasmF64Value(arg));
             }
-            case WasmOpcode.LocalSet:
+            case WasmOpcode.LocalSet 
+                or WasmOpcode.LocalGet 
+                or WasmOpcode.LocalTee
+                or WasmOpcode.GlobalGet
+                or WasmOpcode.GlobalSet
+                or WasmOpcode.Call
+                or WasmOpcode.BrIf:
             {
                 var arg = (int)ReadVarUInt32();
-                return new WasmInstruction(WasmOpcode.LocalSet, new WasmI32Value(arg));
-            }
-            case WasmOpcode.LocalGet:
-            {
-                var arg = (int)ReadVarUInt32();
-                return new WasmInstruction(WasmOpcode.LocalGet, new WasmI32Value(arg));
-            }
-            case WasmOpcode.GlobalGet:
-            {
-                var arg = (int)ReadVarUInt32();
-                return new WasmInstruction(WasmOpcode.GlobalGet, new WasmI32Value(arg));
-            }
-            case WasmOpcode.GlobalSet:
-            {
-                var arg = (int)ReadVarUInt32();
-                return new WasmInstruction(WasmOpcode.GlobalSet, new WasmI32Value(arg));
-            }
-            case WasmOpcode.Call:
-            {
-                var arg = (int)ReadVarUInt32();
-                return new WasmInstruction(WasmOpcode.Call, new WasmI32Value(arg));
+                return new WasmInstruction(opcode, new WasmI32Value(arg));
             }
             case WasmOpcode.CallIndirect:
             {
@@ -471,11 +457,6 @@ public class WasmReader
                 var blockType = ReadBlockType();
                 var expr = ReadExpression();
                 return new WasmInstruction(WasmOpcode.Block, blockType, new WasmExpressionValue(expr));
-            }
-            case WasmOpcode.BrIf:
-            {
-                var l = (int)ReadVarUInt32();
-                return new WasmInstruction(WasmOpcode.BrIf, new WasmI32Value(l));
             }
             case WasmOpcode.I32Add:
             case WasmOpcode.I32Sub:

@@ -10,6 +10,7 @@ public enum WasmOpcode
     CallIndirect = 0x11,
     LocalGet = 0x20,
     LocalSet = 0x21,
+    LocalTee = 0x22,
     GlobalGet = 0x23,
     GlobalSet = 0x24,
     I32Load = 0x28,

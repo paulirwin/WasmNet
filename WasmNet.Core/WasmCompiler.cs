@@ -140,6 +140,9 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.LocalSet:
                 LocalSet(instruction);
                 break;
+            case WasmOpcode.LocalTee:
+                LocalTee(instruction);
+                break;
             case WasmOpcode.Call:
                 Call(instruction);
                 break;
@@ -170,6 +173,14 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             default:
                 throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
+    }
+
+    private void LocalTee(WasmInstruction instruction)
+    {
+        var type = _stack.Peek();
+        _il.Emit(OpCodes.Dup); // duplicate value on stack
+        _stack.Push(type); // push duplicated value type onto stack
+        LocalSet(instruction); // set local
     }
 
     private void I32Eqz()
