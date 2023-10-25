@@ -452,11 +452,11 @@ public class WasmReader
                     new WasmI32Value(offset),
                     new WasmI32Value(align));
             }
-            case WasmOpcode.Block:
+            case WasmOpcode.Block or WasmOpcode.Loop:
             {
                 var blockType = ReadBlockType();
                 var expr = ReadExpression();
-                return new WasmInstruction(WasmOpcode.Block, blockType, new WasmExpressionValue(expr));
+                return new WasmInstruction(opcode, blockType, new WasmExpressionValue(expr));
             }
             case WasmOpcode.I32Add:
             case WasmOpcode.I32Sub:
@@ -473,6 +473,7 @@ public class WasmReader
             case WasmOpcode.I32ShrS:
             case WasmOpcode.I32Eqz:
             case WasmOpcode.I32Eq:
+            case WasmOpcode.I32LtS:
             case WasmOpcode.I64Add:
             case WasmOpcode.I64Sub:
             case WasmOpcode.I64Mul:

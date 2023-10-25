@@ -134,6 +134,9 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.I32Eq or WasmOpcode.I64Eq:
                 Ceq();
                 break;
+            case WasmOpcode.I32LtS:
+                Clt();
+                break;
             case WasmOpcode.LocalGet:
                 LocalGet(instruction);
                 break;
@@ -167,6 +170,9 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.Block:
                 Block(instruction);
                 break;
+            case WasmOpcode.Loop:
+                Loop(instruction);
+                break;
             case WasmOpcode.BrIf:
                 BrIf(instruction);
                 break;
@@ -188,7 +194,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         _il.Emit(OpCodes.Ldc_I4_0);
         _il.Emit(OpCodes.Ceq);
         _stack.Pop();
-        _stack.Push(typeof(bool));
+        _stack.Push(typeof(int));
     }
     
     private void I64Eqz()
@@ -196,7 +202,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         _il.Emit(OpCodes.Ldc_I8, 0L);
         _il.Emit(OpCodes.Ceq);
         _stack.Pop();
-        _stack.Push(typeof(bool));
+        _stack.Push(typeof(int));
     }
 
     private void BrIf(WasmInstruction instruction)
@@ -249,6 +255,32 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         
         _il.Emit(OpCodes.Nop);
         _il.MarkLabel(label);
+    }
+    
+    private void Loop(WasmInstruction instruction)
+    {
+        if (instruction.Operands.Count != 2)
+            throw new InvalidOperationException();
+
+        if (instruction.Operands[0] is not WasmBlockType blockType)
+            throw new InvalidOperationException();
+        
+        if (instruction.Operands[1] is not WasmExpressionValue { Expression: var expression })
+            throw new InvalidOperationException();
+
+        if (blockType is not WasmBlockType.EmptyBlockType)
+            throw new NotImplementedException("Only empty block types are supported");
+
+        var label = CreateWasmVisibleLabel();
+        _il.MarkLabel(label);
+        _il.Emit(OpCodes.Nop);
+        
+        foreach (var exprInstruction in expression.Instructions)
+        {
+            CompileInstruction(exprInstruction);
+        }
+        
+        _il.Emit(OpCodes.Nop);
     }
 
     private void MemoryLoad(WasmInstruction instruction, Type t)
@@ -563,7 +595,15 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         _il.Emit(OpCodes.Ceq);
         _stack.Pop();
         _stack.Pop();
-        _stack.Push(typeof(bool));
+        _stack.Push(typeof(int));
+    }
+    
+    private void Clt()
+    {
+        _il.Emit(OpCodes.Clt);
+        _stack.Pop();
+        _stack.Pop();
+        _stack.Push(typeof(int));
     }
 
     private void ShrUn(WasmInstruction instruction)

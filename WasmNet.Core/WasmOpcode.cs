@@ -3,6 +3,7 @@ namespace WasmNet.Core;
 public enum WasmOpcode
 {
     Block = 0x02,
+    Loop = 0x03,
     End = 0x0B,
     BrIf = 0x0D,
     Return = 0x0F,
@@ -21,6 +22,7 @@ public enum WasmOpcode
     F64Const = 0x44,
     I32Eqz = 0x45,
     I32Eq = 0x46,
+    I32LtS = 0x48,
     I64Eqz = 0x50,
     I64Eq = 0x51,
     I32Add = 0x6A,
