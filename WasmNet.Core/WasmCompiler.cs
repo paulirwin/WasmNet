@@ -99,6 +99,9 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.Unreachable:
                 Unreachable();
                 break;
+            case WasmOpcode.Nop:
+                Nop();
+                break;
             case WasmOpcode.Return:
                 Ret();
                 break;
@@ -399,17 +402,22 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             throw new NotImplementedException("Only empty block types are supported");
 
         var label = CreateWasmVisibleLabel();
-        _il.Emit(OpCodes.Nop);
+        Nop();
         
         foreach (var exprInstruction in expression.Instructions)
         {
             CompileInstruction(exprInstruction);
         }
-        
-        _il.Emit(OpCodes.Nop);
+
+        Nop();
         _il.MarkLabel(label);
     }
-    
+
+    private void Nop()
+    {
+        _il.Emit(OpCodes.Nop);
+    }
+
     private void Loop(WasmInstruction instruction)
     {
         if (instruction.Operands.Count != 2)
@@ -426,14 +434,14 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
         var label = CreateWasmVisibleLabel();
         _il.MarkLabel(label);
-        _il.Emit(OpCodes.Nop);
+        Nop();
         
         foreach (var exprInstruction in expression.Instructions)
         {
             CompileInstruction(exprInstruction);
         }
         
-        _il.Emit(OpCodes.Nop);
+        Nop();
     }
 
     private void MemoryLoad(WasmInstruction instruction, Type t)

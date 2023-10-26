@@ -3,6 +3,7 @@ namespace WasmNet.Core;
 public enum WasmOpcode
 {
     Unreachable = 0x00,
+    Nop = 0x01,
     Block = 0x02,
     Loop = 0x03,
     End = 0x0B,
