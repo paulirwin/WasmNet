@@ -96,6 +96,9 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
     {
         switch (instruction.Opcode)
         {
+            case WasmOpcode.Unreachable:
+                Unreachable();
+                break;
             case WasmOpcode.Return:
                 Ret();
                 break;
@@ -238,6 +241,12 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             default:
                 throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
+    }
+
+    private void Unreachable()
+    {
+        _il.Emit(OpCodes.Newobj, typeof(UnreachableException).GetConstructor(Type.EmptyTypes)!);
+        _il.Emit(OpCodes.Throw);
     }
 
     private void DataDrop(WasmInstruction instruction)

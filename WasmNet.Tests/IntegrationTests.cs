@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text;
 using Xunit.Abstractions;
 
@@ -61,12 +62,23 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
         var module = await runtime.InstantiateModuleAsync(wasmFile);
         
         object? result = null;
+        Exception? exception = null;
 
         foreach (var op in header.Operations)
         {
             if (op is InvokeOperation invoke)
             {
-                result = runtime.Invoke(module, invoke.Function, invoke.Args);
+                exception = null;
+                result = null;
+                
+                try
+                {
+                    result = runtime.Invoke(module, invoke.Function, invoke.Args);
+                }
+                catch (Exception ex)
+                {
+                    exception = ex;
+                }
             }
             else if (op is GlobalOperation or MemoryOperation)
             {
@@ -74,11 +86,21 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
             }
             else if (op is ExpectCallOperation expectCall)
             {
+                if (exception is not null)
+                {
+                    throw new Exception($"Expected call to {expectCall.Namespace}.{expectCall.Name} but it threw an exception: {exception}");
+                }
+                
                 Assert.True(externalCalls.TryGetValue($"{expectCall.Namespace}.{expectCall.Name}", out var count), $"Expected call to {expectCall.Namespace}.{expectCall.Name} but it was not called");
                 Assert.True(count > 0);
             }
             else if (op is ExpectOperation expect)
             {
+                if (exception is not null)
+                {
+                    throw new Exception($"Expected {expect.Value} but it threw an exception: {exception}");
+                }
+                
                 if (expect.Value.Type is null)
                 {
                     Assert.Null(result);
@@ -98,6 +120,20 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
                     Assert.Equal(expect.Value.Value, result);
                 }       
             }
+            else if (op is ExpectTrapOperation expectTrap)
+            {
+                if (exception is TargetInvocationException tie)
+                {
+                    exception = tie.InnerException;
+                }
+                
+                Assert.NotNull(exception);
+                Assert.Equal(expectTrap.ExceptionType, exception.GetType().Name);
+            }
+            else
+            {
+                throw new NotImplementedException($"Unknown operation: {op.GetType().Name}");
+            }
         }
     }
     
@@ -109,6 +145,19 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
     }
 
     private abstract class Operation;
+    
+    private class ExpectTrapOperation : Operation
+    {
+        public required string ExceptionType { get; init; }
+        
+        public static ExpectTrapOperation Parse(string text)
+        {
+            return new ExpectTrapOperation
+            {
+                ExceptionType = text,
+            };
+        }
+    }
 
     private class MemoryOperation : Operation
     {
@@ -287,6 +336,10 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
                 else if (line.StartsWith("memory: "))
                 {
                     ops.Add(MemoryOperation.Parse(line[8..]));
+                }
+                else if (line.StartsWith("expect_trap: "))
+                {
+                    ops.Add(ExpectTrapOperation.Parse(line[13..]));
                 }
                 else if (line.StartsWith("source: ") || line.StartsWith("TODO: "))
                 {

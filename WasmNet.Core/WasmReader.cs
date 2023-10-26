@@ -529,6 +529,7 @@ public class WasmReader
             case WasmOpcode.End:
             case WasmOpcode.Return:
             case WasmOpcode.Drop:
+            case WasmOpcode.Unreachable:
                 return new WasmInstruction(opcode);
             default:
                 throw new Exception($"Unsupported WASM opcode: 0x{opcode:X}");
