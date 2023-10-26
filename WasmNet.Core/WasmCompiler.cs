@@ -171,17 +171,33 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.I32LtS:
                 Clt();
                 break;
+            case WasmOpcode.I32LtU:
+                Clt_Un();
+                break;
             case WasmOpcode.I32GtS:
                 Cgt();
+                break;
+            case WasmOpcode.I32GtU:
+                Cgt_Un();
                 break;
             case WasmOpcode.I32GeS:
                 // >= is the same as !(<)
                 Clt();
                 I32Eqz();
                 break;
+            case WasmOpcode.I32GeU:
+                // >= is the same as !(<)
+                Clt_Un();
+                I32Eqz();
+                break;
             case WasmOpcode.I32LeS:
                 // <= is the same as !(>)
                 Cgt();
+                I32Eqz();
+                break;
+            case WasmOpcode.I32LeU:
+                // <= is the same as !(>)
+                Cgt_Un();
                 I32Eqz();
                 break;
             case WasmOpcode.I64ExtendI32S:
@@ -244,6 +260,22 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             default:
                 throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
+    }
+
+    private void Cgt_Un()
+    {
+        _il.Emit(OpCodes.Cgt_Un);
+        _stack.Pop();
+        _stack.Pop();
+        _stack.Push(typeof(int));
+    }
+
+    private void Clt_Un()
+    {
+        _il.Emit(OpCodes.Clt_Un);
+        _stack.Pop();
+        _stack.Pop();
+        _stack.Push(typeof(int));
     }
 
     private void Unreachable()

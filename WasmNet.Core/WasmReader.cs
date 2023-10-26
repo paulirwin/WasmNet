@@ -502,6 +502,10 @@ public class WasmReader
             case WasmOpcode.I32GtS:
             case WasmOpcode.I32LeS:
             case WasmOpcode.I32GeS:
+            case WasmOpcode.I32GeU:
+            case WasmOpcode.I32LtU:
+            case WasmOpcode.I32LeU:
+            case WasmOpcode.I32GtU:
             case WasmOpcode.I64Add:
             case WasmOpcode.I64Sub:
             case WasmOpcode.I64Mul:
