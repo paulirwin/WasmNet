@@ -188,34 +188,34 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.I32Ne or WasmOpcode.I64Ne or WasmOpcode.F32Ne or WasmOpcode.F64Ne:
                 NotEqual();
                 break;
-            case WasmOpcode.I32LtS:
+            case WasmOpcode.I32LtS or WasmOpcode.I64LtS:
                 Clt();
                 break;
-            case WasmOpcode.I32LtU:
+            case WasmOpcode.I32LtU or WasmOpcode.I64LtU:
                 Clt_Un();
                 break;
-            case WasmOpcode.I32GtS:
+            case WasmOpcode.I32GtS or WasmOpcode.I64GtS:
                 Cgt();
                 break;
-            case WasmOpcode.I32GtU:
+            case WasmOpcode.I32GtU or WasmOpcode.I64GtU:
                 Cgt_Un();
                 break;
-            case WasmOpcode.I32GeS:
+            case WasmOpcode.I32GeS or WasmOpcode.I64GeS:
                 // >= is the same as !(<)
                 Clt();
                 I32Eqz();
                 break;
-            case WasmOpcode.I32GeU:
+            case WasmOpcode.I32GeU or WasmOpcode.I64GeU:
                 // >= is the same as !(<)
                 Clt_Un();
                 I32Eqz();
                 break;
-            case WasmOpcode.I32LeS:
+            case WasmOpcode.I32LeS or WasmOpcode.I64LeS:
                 // <= is the same as !(>)
                 Cgt();
                 I32Eqz();
                 break;
-            case WasmOpcode.I32LeU:
+            case WasmOpcode.I32LeU or WasmOpcode.I64LeU:
                 // <= is the same as !(>)
                 Cgt_Un();
                 I32Eqz();

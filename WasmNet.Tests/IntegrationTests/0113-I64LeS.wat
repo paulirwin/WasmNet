@@ -3,8 +3,8 @@
 
 (module
     (func (export "les") (result i32)
-        i32.const 42
-        i32.const 42
-        i32.le_s
+        i64.const -42
+        i64.const -42
+        i64.le_s
     )
 )

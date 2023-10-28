@@ -543,6 +543,14 @@ public class WasmReader
             case WasmOpcode.I64Eqz:
             case WasmOpcode.I64Eq:
             case WasmOpcode.I64Ne:
+            case WasmOpcode.I64LtS:
+            case WasmOpcode.I64LtU:
+            case WasmOpcode.I64GtS:
+            case WasmOpcode.I64GtU:
+            case WasmOpcode.I64LeS:
+            case WasmOpcode.I64LeU:
+            case WasmOpcode.I64GeS:
+            case WasmOpcode.I64GeU:
             case WasmOpcode.F32Add:
             case WasmOpcode.F32Sub:
             case WasmOpcode.F32Mul:

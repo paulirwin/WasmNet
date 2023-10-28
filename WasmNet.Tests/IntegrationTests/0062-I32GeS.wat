@@ -2,7 +2,6 @@
 ;; expect: (i32:0)
 
 (module
-    (memory 1)
     (func (export "ges") (result i32)
         i32.const 10
         i32.const 42
