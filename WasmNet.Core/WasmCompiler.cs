@@ -605,7 +605,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         
         if (type2 != type3)
         {
-            throw new InvalidOperationException("Select expects its two values to be the same");
+            throw new InvalidOperationException("Select expects its two values to be the same type");
         }
         
         _il.Emit(OpCodes.Call, typeof(SelectFunctions).GetMethod(nameof(SelectFunctions.Select))!.MakeGenericMethod(type2));

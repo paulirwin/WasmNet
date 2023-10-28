@@ -21,6 +21,12 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
         {
             throw new Exception($"wat2wasm failed to produce {wasmFile}.");
         }
+
+        var output = new StringBuilder();
+
+        await using var outputWriter = new StringWriter(output);
+        var oldOut = Console.Out;
+        Console.SetOut(outputWriter);
         
         WasmRuntime runtime = new()
         {
@@ -155,11 +161,19 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
                 Assert.Equal(exitCode.ExitCode, ece.ExitCode);
                 testOutputHelper.WriteLine($"Expected exit code {exitCode.ExitCode} and got {ece.ExitCode}");
             }
+            else if (op is OutputOperation outputOp)
+            {
+                Assert.Equal(outputOp.Text, output.ToString());
+                testOutputHelper.WriteLine($"Expected output: {outputOp.Text.Replace("\n", "\\n")}");
+                testOutputHelper.WriteLine($"Actual output: {output.ToString().Replace("\n", "\\n")}");
+            }
             else
             {
                 throw new NotImplementedException($"Unknown operation: {op.GetType().Name}");
             }
         }
+        
+        Console.SetOut(oldOut);
     }
     
     public static IEnumerable<object[]> GetWatFiles()
@@ -180,6 +194,19 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
     }
 
     private abstract class Operation;
+    
+    private class OutputOperation : Operation
+    {
+        public required string Text { get; init; }
+        
+        public static OutputOperation Parse(string text)
+        {
+            return new OutputOperation
+            {
+                Text = text.Replace("\\n", "\n"),
+            };
+        }
+    }
     
     private class ExitCodeOperation : Operation
     {
@@ -394,6 +421,10 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
                 else if (line.StartsWith("exit_code: "))
                 {
                     ops.Add(ExitCodeOperation.Parse(line[11..]));
+                }
+                else if (line.StartsWith("output: "))
+                {
+                    ops.Add(OutputOperation.Parse(line[8..]));
                 }
                 else if (line.StartsWith("source: ") || line.StartsWith("TODO: ") || line.StartsWith("NOTE:"))
                 {

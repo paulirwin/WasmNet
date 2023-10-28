@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace WasmNet.Core;
 
 public class Memory(int minPages, int maxPages)
@@ -44,4 +46,15 @@ public class Memory(int minPages, int maxPages)
 
     public void Write(int destOffset, byte[] bytes, int srcOffset, int count) 
         => Array.Copy(bytes, srcOffset, _bytes, destOffset, count);
+
+    public T ReadStruct<T>(int offset)
+        where T : struct
+    {
+        var size = Marshal.SizeOf<T>();
+        var bytes = Read(offset, size);
+        var handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+        var result = Marshal.PtrToStructure<T>(handle.AddrOfPinnedObject());
+        handle.Free();
+        return result;
+    }
 }
