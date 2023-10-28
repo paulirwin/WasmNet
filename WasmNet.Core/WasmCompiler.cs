@@ -182,10 +182,10 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.I64Eqz:
                 I64Eqz();
                 break;
-            case WasmOpcode.I32Eq or WasmOpcode.I64Eq:
+            case WasmOpcode.I32Eq or WasmOpcode.I64Eq or WasmOpcode.F32Eq or WasmOpcode.F64Eq:
                 Ceq();
                 break;
-            case WasmOpcode.I32Ne or WasmOpcode.I64Ne:
+            case WasmOpcode.I32Ne or WasmOpcode.I64Ne or WasmOpcode.F32Ne or WasmOpcode.F64Ne:
                 NotEqual();
                 break;
             case WasmOpcode.I32LtS:

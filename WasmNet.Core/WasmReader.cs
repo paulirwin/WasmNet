@@ -543,6 +543,10 @@ public class WasmReader
             case WasmOpcode.F64Sub:
             case WasmOpcode.F64Mul:
             case WasmOpcode.F64Div:
+            case WasmOpcode.F32Eq:
+            case WasmOpcode.F32Ne:
+            case WasmOpcode.F64Eq:
+            case WasmOpcode.F64Ne:
             case WasmOpcode.I32WrapI64:
             case WasmOpcode.I64ExtendI32S:
             case WasmOpcode.I64ExtendI32U:
