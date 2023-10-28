@@ -424,8 +424,8 @@ public class WasmReader
         {
             case (WasmOpcode)(-1):
                 throw new Exception("Invalid WASM file.");
-            case WasmOpcode.BulkMemory:
-                return ReadBulkMemoryInstruction();
+            case WasmOpcode.ExtendedOpcodes:
+                return ReadExtendedOpcode();
             case WasmOpcode.I32Const:
             {
                 var arg = ReadVarInt32();
@@ -541,14 +541,14 @@ public class WasmReader
         }
     }
 
-    // Bulk memory instructions starting with 0xFC have a sub-opcode form
-    private WasmInstruction ReadBulkMemoryInstruction()
+    // Extended opcodes starting with 0xFC have a sub-opcode form
+    private WasmInstruction ReadExtendedOpcode()
     {
         var subOpcode = ReadVarUInt32();
 
         switch (subOpcode)
         {
-            case 8: // 0xFC 8:u32 𝑥:dataidx 0x00
+            case 8: // 0xFC 8:u32 𝑥:dataidx 0x00 => memory.init 𝑥
             {
                 var x = (int)ReadVarUInt32();
                 
@@ -559,7 +559,7 @@ public class WasmReader
                 
                 return new WasmInstruction(WasmOpcode.MemoryInit, new WasmI32Value(x));
             }
-            case 9: // 0xFC 9:u32 𝑥:dataidx
+            case 9: // 0xFC 9:u32 𝑥:dataidx => data.drop 𝑥
             {
                 var x = (int)ReadVarUInt32();
                 

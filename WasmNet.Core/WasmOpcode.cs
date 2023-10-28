@@ -74,7 +74,7 @@ public enum WasmOpcode
     F64Div = 0xA3,
     I64ExtendI32S = 0xAC,
     RefFunc = 0xD2,
-    BulkMemory = 0xFC,
+    ExtendedOpcodes = 0xFC,
     MemoryInit = 0xFC08,
     DataDrop = 0xFC09,
 }
