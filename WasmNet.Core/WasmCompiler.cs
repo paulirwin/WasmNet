@@ -249,6 +249,30 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.I64ExtendI32U:
                 ConvU8();
                 break;
+            case WasmOpcode.I32TruncF32S:
+                Truncate(typeof(float), typeof(int), signed: true);
+                break;
+            case WasmOpcode.I32TruncF32U:
+                Truncate(typeof(float), typeof(int), signed: false);
+                break;
+            case WasmOpcode.I32TruncF64S:
+                Truncate(typeof(double), typeof(int), signed: true);
+                break;
+            case WasmOpcode.I32TruncF64U:
+                Truncate(typeof(double), typeof(int), signed: false);
+                break;
+            case WasmOpcode.I64TruncF32S:
+                Truncate(typeof(float), typeof(long), signed: true);
+                break;
+            case WasmOpcode.I64TruncF32U:
+                Truncate(typeof(float), typeof(long), signed: false);
+                break;
+            case WasmOpcode.I64TruncF64S:
+                Truncate(typeof(double), typeof(long), signed: true);
+                break;
+            case WasmOpcode.I64TruncF64U:
+                Truncate(typeof(double), typeof(long), signed: false);
+                break;
             case WasmOpcode.LocalGet:
                 LocalGet(instruction);
                 break;
@@ -396,6 +420,31 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             default:
                 throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
+    }
+
+    private void Truncate(Type source, Type dest, bool signed)
+    {
+        var type = _stack.Pop();
+        
+        if (type != source)
+        {
+            throw new InvalidOperationException($"Truncate expects {source} but stack contains {type}");
+        }
+        
+        if (dest == typeof(int))
+        {
+            _il.Emit(signed ? OpCodes.Conv_Ovf_I4 : OpCodes.Conv_Ovf_I4_Un);
+        }
+        else if (dest == typeof(long))
+        {
+            _il.Emit(signed ? OpCodes.Conv_Ovf_I8 : OpCodes.Conv_Ovf_I8_Un);
+        }
+        else
+        {
+            throw new NotImplementedException($"Truncate from {source} to {dest} not implemented");
+        }
+        
+        _stack.Push(dest);
     }
 
     private void F64Abs()
