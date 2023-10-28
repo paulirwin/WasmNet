@@ -310,6 +310,9 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.F64ReinterpretI64:
                 F64ReinterpretI64();
                 break;
+            case WasmOpcode.I32WrapI64:
+                ConvI4();
+                break;
             case WasmOpcode.Block:
                 Block(instruction);
                 break;
@@ -334,6 +337,13 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             default:
                 throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
+    }
+
+    private void ConvI4()
+    {
+        _il.Emit(OpCodes.Conv_I4);
+        _stack.Pop();
+        _stack.Push(typeof(int));
     }
 
     private void F64ReinterpretI64()

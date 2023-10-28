@@ -73,6 +73,7 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
                 
                 try
                 {
+                    testOutputHelper.WriteLine($"Invoking {invoke.Function}({string.Join(", ", invoke.Args)})");
                     result = runtime.Invoke(module, invoke.Function, invoke.Args);
                 }
                 catch (Exception ex)
@@ -93,6 +94,7 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
                 
                 Assert.True(externalCalls.TryGetValue($"{expectCall.Namespace}.{expectCall.Name}", out var count), $"Expected call to {expectCall.Namespace}.{expectCall.Name} but it was not called");
                 Assert.True(count > 0);
+                testOutputHelper.WriteLine($"Expected call to {expectCall.Namespace}.{expectCall.Name} and it was called {count} times");
             }
             else if (op is ExpectOperation expect)
             {
@@ -104,20 +106,24 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
                 if (expect.Value.Type is null)
                 {
                     Assert.Null(result);
+                    testOutputHelper.WriteLine($"Expected null and got null");
                 }
                 else if (expect.Value.Value is float f)
                 {
                     var resultF = Assert.IsType<float>(result);
                     Assert.Equal(f, resultF, 0.000001);
+                    testOutputHelper.WriteLine($"Expected {f} and got {resultF}");
                 }
                 else if (expect.Value.Value is double d)
                 {
                     var resultD = Assert.IsType<double>(result);
                     Assert.Equal(d, resultD, 0.000001);
+                    testOutputHelper.WriteLine($"Expected {d} and got {resultD}");
                 }
                 else
                 {
                     Assert.Equal(expect.Value.Value, result);
+                    testOutputHelper.WriteLine($"Expected {expect.Value.Value} and got {result}");
                 }       
             }
             else if (op is ExpectTrapOperation expectTrap)
@@ -129,6 +135,7 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
                 
                 Assert.NotNull(exception);
                 Assert.Equal(expectTrap.ExceptionType, exception.GetType().Name);
+                testOutputHelper.WriteLine($"Exception is of type {exception.GetType().Name}: {exception.Message}");
             }
             else
             {
