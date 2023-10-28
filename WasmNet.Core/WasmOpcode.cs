@@ -13,6 +13,7 @@ public enum WasmOpcode
     Call = 0x10,
     CallIndirect = 0x11,
     Drop = 0x1A,
+    Select = 0x1B,
     LocalGet = 0x20,
     LocalSet = 0x21,
     LocalTee = 0x22,

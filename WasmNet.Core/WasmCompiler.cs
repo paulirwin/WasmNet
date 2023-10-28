@@ -257,9 +257,32 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.DataDrop:
                 DataDrop(instruction);
                 break;
+            case WasmOpcode.Select:
+                Select();
+                break;
             default:
                 throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
+    }
+
+    private void Select()
+    {
+        var type = _stack.Pop();
+        var type2 = _stack.Pop();
+        var type3 = _stack.Pop();
+        
+        if (type != typeof(int))
+        {
+            throw new InvalidOperationException("Select expects its first value to be i32");
+        }
+        
+        if (type2 != type3)
+        {
+            throw new InvalidOperationException("Select expects its two values to be the same");
+        }
+        
+        _il.Emit(OpCodes.Call, typeof(SelectFunctions).GetMethod(nameof(SelectFunctions.Select))!.MakeGenericMethod(type2));
+        _stack.Push(type);
     }
 
     private void Cgt_Un()

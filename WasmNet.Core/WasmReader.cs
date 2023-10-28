@@ -533,6 +533,7 @@ public class WasmReader
             case WasmOpcode.End:
             case WasmOpcode.Return:
             case WasmOpcode.Drop:
+            case WasmOpcode.Select:
             case WasmOpcode.Unreachable:
             case WasmOpcode.Nop:
                 return new WasmInstruction(opcode);
