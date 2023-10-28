@@ -357,6 +357,18 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.I32WrapI64:
                 ConvI4();
                 break;
+            case WasmOpcode.F32Abs:
+                F32Abs();
+                break;
+            case WasmOpcode.F32Neg:
+                Neg(typeof(float));
+                break;
+            case WasmOpcode.F64Abs:
+                F64Abs();
+                break;
+            case WasmOpcode.F64Neg:
+                Neg(typeof(double));
+                break;
             case WasmOpcode.Block:
                 Block(instruction);
                 break;
@@ -384,6 +396,27 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             default:
                 throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
+    }
+
+    private void F64Abs()
+    {
+        _il.Emit(OpCodes.Call, typeof(Math).GetMethod(nameof(Math.Abs), new[] { typeof(double) })!);
+        _stack.Pop();
+        _stack.Push(typeof(double));
+    }
+
+    private void Neg(Type t)
+    {
+        _il.Emit(OpCodes.Neg);
+        _stack.Pop();
+        _stack.Push(t);
+    }
+
+    private void F32Abs()
+    {
+        _il.Emit(OpCodes.Call, typeof(MathF).GetMethod(nameof(MathF.Abs))!);
+        _stack.Pop();
+        _stack.Push(typeof(float));
     }
 
     private void BrTable(WasmInstruction instruction)
