@@ -23,6 +23,8 @@ public enum WasmOpcode
     I64Load = 0x29,
     I32Store = 0x36,
     I64Store = 0x37,
+    I32Store8 = 0x3A,
+    I32Store16 = 0x3B,
     I32Const = 0x41,
     I64Const = 0x42,
     F32Const = 0x43,

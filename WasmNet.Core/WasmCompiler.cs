@@ -50,13 +50,20 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             _globalTempLocalIndex = tempLocal.LocalIndex;
         }
 
-        if (code.Body.Instructions.Any(i => i.Opcode is WasmOpcode.I32Store or WasmOpcode.I32Load or WasmOpcode.I64Store or WasmOpcode.I64Load))
+        if (code.Body.Instructions.Any(i => i.Opcode is WasmOpcode.I32Store 
+                or WasmOpcode.I32Load 
+                or WasmOpcode.I64Store 
+                or WasmOpcode.I64Load
+                or WasmOpcode.I32Store8
+                or WasmOpcode.I32Store16))
         {
             var offsetLocal = _il.DeclareLocal(typeof(int)); // temp offset value
             _memoryStoreLoadOffsetLocalIndex = offsetLocal.LocalIndex;
         }
 
-        if (code.Body.Instructions.Any(i => i.Opcode == WasmOpcode.I32Store))
+        if (code.Body.Instructions.Any(i => i.Opcode is WasmOpcode.I32Store 
+                or WasmOpcode.I32Store8
+                or WasmOpcode.I32Store16))
         {
             var intLocal = _il.DeclareLocal(typeof(int));   // temp int value
             _memoryStoreIntLocalIndex = intLocal.LocalIndex;
@@ -232,6 +239,12 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
                 break;
             case WasmOpcode.I32Store:
                 MemoryStore(instruction, typeof(int));
+                break;
+            case WasmOpcode.I32Store8:
+                MemoryStore(instruction, typeof(int), 8);
+                break;
+            case WasmOpcode.I32Store16:
+                MemoryStore(instruction, typeof(int), 16);
                 break;
             case WasmOpcode.I64Store:
                 MemoryStore(instruction, typeof(long));
@@ -547,7 +560,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         _stack.Push(t);
     }
     
-    private void MemoryStore(WasmInstruction instruction, Type t)
+    private void MemoryStore(WasmInstruction instruction, Type t, int? bits = null)
     {
         // stack should contain [i32, t]
         // i32 is the offset
@@ -586,7 +599,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         _il.Emit(OpCodes.Ldloc, _memoryStoreLoadOffsetLocalIndex); // load dynamic offset
         _il.Emit(OpCodes.Ldloc, localIndex); // load value from temp local
         _il.Emit(OpCodes.Ldc_I4, offset); // load static offset
-        _il.Emit(OpCodes.Ldc_I4_0); // TODO: support storage size opcodes i.e. i32.store8
+        _il.Emit(OpCodes.Ldc_I4, bits ?? 0); // to support i.e. i32.store8
         
         var method = t == typeof(int)
             ? typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.MemoryStoreI32))!
