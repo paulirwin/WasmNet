@@ -1,16 +1,10 @@
 namespace WasmNet.Core;
 
-public class HostFunctionInstance : IFunctionInstance
+public class HostFunctionInstance(WasmType type, Delegate hostCode) : IFunctionInstance
 {
-    public HostFunctionInstance(WasmType type, Delegate hostCode)
-    {
-        Type = type;
-        HostCode = hostCode;
-    }
+    public WasmType Type { get; } = type;
 
-    public WasmType Type { get; }
-    
-    public Delegate HostCode { get; }
+    public Delegate HostCode { get; } = hostCode;
 
     public Type ReturnType => HostCode.Method.ReturnType;
 

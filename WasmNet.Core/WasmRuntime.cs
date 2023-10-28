@@ -1,13 +1,21 @@
 ﻿using System.Reflection;
 using System.Reflection.Emit;
+using WasmNet.Core.Wasi;
 
 namespace WasmNet.Core;
 
 public class WasmRuntime
 {
-    public Store Store { get; } = new();
-    
     private readonly IDictionary<string, IDictionary<string, object?>> _importables = new Dictionary<string, IDictionary<string, object?>>();
+
+    public WasmRuntime()
+    {
+        this.RegisterWasiPreview1();
+    }
+    
+    public Action<int> ExitHandler { get; set; } = Environment.Exit;
+    
+    public Store Store { get; } = new();
 
     public void RegisterImportable(string module, string name, object? value)
     {

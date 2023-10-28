@@ -22,7 +22,10 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
             throw new Exception($"wat2wasm failed to produce {wasmFile}.");
         }
         
-        WasmRuntime runtime = new();
+        WasmRuntime runtime = new()
+        {
+            ExitHandler = code => throw new ExitCodeException(code),
+        };
 
         var externalCalls = new Dictionary<string, int>();
         
@@ -128,7 +131,7 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
             }
             else if (op is ExpectTrapOperation expectTrap)
             {
-                if (exception is TargetInvocationException tie)
+                while (exception is TargetInvocationException tie)
                 {
                     exception = tie.InnerException;
                 }
@@ -136,6 +139,21 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
                 Assert.NotNull(exception);
                 Assert.Equal(expectTrap.ExceptionType, exception.GetType().Name);
                 testOutputHelper.WriteLine($"Exception is of type {exception.GetType().Name}: {exception.Message}");
+            }
+            else if (op is ExitCodeOperation exitCode)
+            {
+                while (exception is TargetInvocationException tie)
+                {
+                    exception = tie.InnerException;
+                }
+                
+                if (exception is not ExitCodeException ece)
+                {
+                    throw new Exception($"Expected exit code {exitCode.ExitCode} but the program did not exit");
+                }
+                
+                Assert.Equal(exitCode.ExitCode, ece.ExitCode);
+                testOutputHelper.WriteLine($"Expected exit code {exitCode.ExitCode} and got {ece.ExitCode}");
             }
             else
             {
@@ -150,8 +168,33 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
         
         return files.Select(i => new object[] { Path.GetFileName(i) });
     }
+    
+    private class ExitCodeException : Exception
+    {
+        public ExitCodeException(int exitCode)
+        {
+            ExitCode = exitCode;
+        }
+        
+        public int ExitCode { get; }
+    }
 
     private abstract class Operation;
+    
+    private class ExitCodeOperation : Operation
+    {
+        public required int ExitCode { get; init; }
+        
+        public static ExitCodeOperation Parse(string text)
+        {
+            var code = int.Parse(text);
+            
+            return new ExitCodeOperation
+            {
+                ExitCode = code,
+            };
+        }
+    }
     
     private class ExpectTrapOperation : Operation
     {
@@ -347,6 +390,10 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
                 else if (line.StartsWith("expect_trap: "))
                 {
                     ops.Add(ExpectTrapOperation.Parse(line[13..]));
+                }
+                else if (line.StartsWith("exit_code: "))
+                {
+                    ops.Add(ExitCodeOperation.Parse(line[11..]));
                 }
                 else if (line.StartsWith("source: ") || line.StartsWith("TODO: ") || line.StartsWith("NOTE:"))
                 {
