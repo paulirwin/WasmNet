@@ -484,7 +484,11 @@ public class WasmReader
                 or WasmOpcode.I64Load32U
                 or WasmOpcode.I64Store8
                 or WasmOpcode.I64Store16
-                or WasmOpcode.I64Store32:
+                or WasmOpcode.I64Store32
+                or WasmOpcode.F32Store
+                or WasmOpcode.F64Store
+                or WasmOpcode.F32Load
+                or WasmOpcode.F64Load:
             {
                 var align = (int)ReadVarUInt32();
                 var offset = (int)ReadVarUInt32();

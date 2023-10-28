@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Reflection.Emit;
 
 namespace WasmNet.Core;
@@ -15,6 +16,8 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         _memoryStoreLoadOffsetLocalIndex = -1,
         _memoryStoreIntLocalIndex = -1,
         _memoryStoreLongLocalIndex = -1,
+        _memoryStoreSingleLocalIndex = -1,
+        _memoryStoreDoubleLocalIndex = -1,
         _memoryInitDestLocalIndex = -1,
         _memoryInitSrcLocalIndex = -1,
         _memoryInitCountLocalIndex = -1;
@@ -68,7 +71,9 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
                 or WasmOpcode.I64Load32U
                 or WasmOpcode.I64Store8
                 or WasmOpcode.I64Store16
-                or WasmOpcode.I64Store32))
+                or WasmOpcode.I64Store32
+                or WasmOpcode.F32Load
+                or WasmOpcode.F64Load))
         {
             var offsetLocal = _il.DeclareLocal(typeof(int)); // temp offset value
             _memoryStoreLoadOffsetLocalIndex = offsetLocal.LocalIndex;
@@ -80,6 +85,18 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         {
             var intLocal = _il.DeclareLocal(typeof(int));   // temp int value
             _memoryStoreIntLocalIndex = intLocal.LocalIndex;
+        }
+        
+        if (code.Body.Instructions.Any(i => i.Opcode is WasmOpcode.F32Store))
+        {
+            var floatLocal = _il.DeclareLocal(typeof(float));   // temp float value
+            _memoryStoreSingleLocalIndex = floatLocal.LocalIndex;
+        }
+        
+        if (code.Body.Instructions.Any(i => i.Opcode is WasmOpcode.F64Store))
+        {
+            var doubleLocal = _il.DeclareLocal(typeof(double));   // temp double value
+            _memoryStoreDoubleLocalIndex = doubleLocal.LocalIndex;
         }
         
         if (code.Body.Instructions.Any(i => i.Opcode is WasmOpcode.I64Store
@@ -277,6 +294,12 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.I64Store32:
                 MemoryStore(instruction, typeof(long), 32);
                 break;
+            case WasmOpcode.F32Store:
+                MemoryStore(instruction, typeof(float));
+                break;
+            case WasmOpcode.F64Store:
+                MemoryStore(instruction, typeof(double));
+                break;
             case WasmOpcode.I32Load:
                 MemoryLoad(instruction, typeof(int));
                 break;
@@ -312,6 +335,12 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
                 break;
             case WasmOpcode.I64Load:
                 MemoryLoad(instruction, typeof(long));
+                break;
+            case WasmOpcode.F32Load:
+                MemoryLoad(instruction, typeof(float));
+                break;
+            case WasmOpcode.F64Load:
+                MemoryLoad(instruction, typeof(double));
                 break;
             case WasmOpcode.I32ReinterpretF32:
                 I32ReinterpretF32();
@@ -706,13 +735,26 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         _il.Emit(OpCodes.Ldarg_0); // load module instance
         _il.Emit(OpCodes.Ldloc, _memoryStoreLoadOffsetLocalIndex); // load dynamic offset from temp local
         _il.Emit(OpCodes.Ldc_I4, offset); // load static offset
-        _il.Emit(OpCodes.Ldc_I4, bits ?? 0); // storage size i.e. i32.load8_s
-        _il.Emit(OpCodes.Ldc_I4, signExtend ? 1 : 0); // sign extend i.e. i32.load8_s
+
+        if (t == typeof(int) || t == typeof(long))
+        {
+            _il.Emit(OpCodes.Ldc_I4, bits ?? 0); // storage size i.e. i32.load8_s
+            _il.Emit(OpCodes.Ldc_I4, signExtend ? 1 : 0); // sign extend i.e. i32.load8_s
+        }
+
+        MethodInfo method;
         
-        var method = t == typeof(int)
-            ? typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.MemoryLoadI32))!
-            : typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.MemoryLoadI64))!;
-        
+        if (t == typeof(int))
+            method = typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.MemoryLoadI32))!;
+        else if (t == typeof(long))
+            method = typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.MemoryLoadI64))!;
+        else if (t == typeof(float))
+            method = typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.MemoryLoadF32))!;
+        else if (t == typeof(double))
+            method = typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.MemoryLoadF64))!;
+        else
+            throw new InvalidOperationException($"Memory load expects int, long, float or double but got {t}");
+
         _il.Emit(OpCodes.Callvirt, method); // load from memory
         _stack.Push(t);
     }
@@ -745,10 +787,19 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
                 $"Memory store expects i32 offset but stack contains {argType}");
         }
         
-        var localIndex = t == typeof(int)
-            ? _memoryStoreIntLocalIndex
-            : _memoryStoreLongLocalIndex;
+        int localIndex;
         
+        if (t == typeof(int))
+            localIndex = _memoryStoreIntLocalIndex;
+        else if (t == typeof(long))
+            localIndex = _memoryStoreLongLocalIndex;
+        else if (t == typeof(float))
+            localIndex = _memoryStoreSingleLocalIndex;
+        else if (t == typeof(double))
+            localIndex = _memoryStoreDoubleLocalIndex;
+        else
+            throw new InvalidOperationException($"Memory store expects int, long, float or double but got {t}");
+
         _il.Emit(OpCodes.Stloc, localIndex); // store arg in temp local
         _il.Emit(OpCodes.Stloc, _memoryStoreLoadOffsetLocalIndex); // store offset in temp local
         
@@ -756,12 +807,23 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         _il.Emit(OpCodes.Ldloc, _memoryStoreLoadOffsetLocalIndex); // load dynamic offset
         _il.Emit(OpCodes.Ldloc, localIndex); // load value from temp local
         _il.Emit(OpCodes.Ldc_I4, offset); // load static offset
-        _il.Emit(OpCodes.Ldc_I4, bits ?? 0); // to support i.e. i32.store8
         
-        var method = t == typeof(int)
-            ? typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.MemoryStoreI32))!
-            : typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.MemoryStoreI64))!;
+        if (t == typeof(int) || t == typeof(long))
+            _il.Emit(OpCodes.Ldc_I4, bits ?? 0); // to support i.e. i32.store8
         
+        MethodInfo method;
+
+        if (t == typeof(int))
+            method = typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.MemoryStoreI32))!;
+        else if (t == typeof(long))
+            method = typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.MemoryStoreI64))!;
+        else if (t == typeof(float))
+            method = typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.MemoryStoreF32))!;
+        else if (t == typeof(double))
+            method = typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.MemoryStoreF64))!;
+        else
+            throw new InvalidOperationException($"Memory store expects int, long, float or double but got {t}");
+
         _il.Emit(OpCodes.Callvirt, method); // store in memory
     }
 
