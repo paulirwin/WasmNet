@@ -348,7 +348,7 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
                 {
                     ops.Add(ExpectTrapOperation.Parse(line[13..]));
                 }
-                else if (line.StartsWith("source: ") || line.StartsWith("TODO: "))
+                else if (line.StartsWith("source: ") || line.StartsWith("TODO: ") || line.StartsWith("NOTE:"))
                 {
                     // ignore
                 }

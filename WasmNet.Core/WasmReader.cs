@@ -495,6 +495,14 @@ public class WasmReader
                 var expr = ReadExpression();
                 return new WasmInstruction(opcode, blockType, new WasmExpressionValue(expr));
             }
+            case WasmOpcode.BrTable:
+            {
+                var labels = ReadUInt32Vector();
+                var defaultLabel = (int)ReadVarUInt32();
+                return new WasmInstruction(WasmOpcode.BrTable,
+                    new WasmI32VectorValue(labels.Select(i => (int)i).ToArray()),
+                    new WasmI32Value(defaultLabel));
+            }
             case WasmOpcode.I32Add:
             case WasmOpcode.I32Sub:
             case WasmOpcode.I32Mul:

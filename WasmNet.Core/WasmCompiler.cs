@@ -6,7 +6,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 {
     private readonly ILGenerator _il = method.GetILGenerator();
     private readonly Stack<Type> _stack = new();
-    private readonly List<Label> _labels = new();
+    private readonly Stack<Label> _labels = new();
     
     private int _callArgsLocalIndex = -1, 
         _callTempLocalIndex = -1,
@@ -325,6 +325,9 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.BrIf:
                 BrIf(instruction);
                 break;
+            case WasmOpcode.BrTable:
+                BrTable(instruction);
+                break;
             case WasmOpcode.MemoryInit:
                 MemoryInit(instruction);
                 break;
@@ -336,6 +339,43 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
                 break;
             default:
                 throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
+        }
+    }
+
+    private void BrTable(WasmInstruction instruction)
+    {
+        if (instruction.Operands.Count != 2)
+        {
+            throw new InvalidOperationException("br_table expects two arguments");
+        }
+        
+        if (instruction.Operands[0] is not WasmI32VectorValue { Values: var labels })
+        {
+            throw new InvalidOperationException("br_table expects first argument to be the break depths");
+        }
+        
+        if (instruction.Operands[1] is not WasmNumberValue<int> { Value: var defaultLabelIndex })
+        {
+            throw new InvalidOperationException("br_table expects last argument to be the default label index");
+        }
+
+        var type = _stack.Pop();
+        
+        if (type != typeof(int))
+        {
+            throw new InvalidOperationException($"br_table expects i32 but stack contains {type}");
+        }
+        
+        _il.Emit(OpCodes.Switch, labels.Select(i => _labels.ElementAt(i)).ToArray());
+
+        if (defaultLabelIndex == 0 && _labels.Count == 0)
+        {
+            _il.Emit(OpCodes.Ret);
+        }
+        else
+        {
+            var defaultLabel = _labels.ElementAt(defaultLabelIndex);
+            _il.Emit(OpCodes.Br, defaultLabel);
         }
     }
 
@@ -538,7 +578,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         if (instruction.Operands[0] is not WasmNumberValue<int> { Value: var labelIndex })
             throw new InvalidOperationException();
 
-        var label = _labels[labelIndex];
+        var label = _labels.ElementAt(labelIndex);
         _il.Emit(OpCodes.Br, label);
     }
     
@@ -550,7 +590,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         if (instruction.Operands[0] is not WasmNumberValue<int> { Value: var labelIndex })
             throw new InvalidOperationException();
 
-        var label = _labels[labelIndex];
+        var label = _labels.ElementAt(labelIndex);
         var type = _stack.Pop();
         
         if (type != typeof(int))
@@ -564,7 +604,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
     private Label CreateWasmVisibleLabel()
     {
         var label = _il.DefineLabel();
-        _labels.Add(label);
+        _labels.Push(label);
         return label;
     }
 
@@ -592,6 +632,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
         Nop();
         _il.MarkLabel(label);
+        _labels.Pop();
     }
 
     private void Nop()
@@ -621,7 +662,8 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         {
             CompileInstruction(exprInstruction);
         }
-        
+
+        _labels.Pop();
         Nop();
     }
 
