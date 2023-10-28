@@ -308,6 +308,12 @@ public class ModuleInstance(WasmModule module, Store store)
         }
         
         var b = PerformMemoryLoad(dynamicOffset, staticOffset, N);
+
+        // Not part of WASM algorithm: resize to 4 bytes if necessary for BitConverter
+        if (b.Length < 4)
+        {
+            Array.Resize(ref b, 4);
+        }
         
         // 12. If 𝑁 and sx are part of the instruction, then:
         //      a. Let 𝑛 be the integer for which bytes_i𝑁(𝑛) = 𝑏*.
@@ -344,6 +350,12 @@ public class ModuleInstance(WasmModule module, Store store)
         }
         
         var b = PerformMemoryLoad(dynamicOffset, staticOffset, N);
+        
+        // Not part of WASM algorithm: resize to 8 bytes if necessary for BitConverter
+        if (b.Length < 8)
+        {
+            Array.Resize(ref b, 8);
+        }
         
         // 12. If 𝑁 and sx are part of the instruction, then:
         //      a. Let 𝑛 be the integer for which bytes_i𝑁(𝑛) = 𝑏*.

@@ -55,7 +55,17 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
                 or WasmOpcode.I64Store 
                 or WasmOpcode.I64Load
                 or WasmOpcode.I32Store8
-                or WasmOpcode.I32Store16))
+                or WasmOpcode.I32Store16
+                or WasmOpcode.I32Load8S
+                or WasmOpcode.I64Load8S
+                or WasmOpcode.I32Load8U
+                or WasmOpcode.I64Load8U
+                or WasmOpcode.I32Load16S
+                or WasmOpcode.I64Load16S
+                or WasmOpcode.I32Load16U
+                or WasmOpcode.I64Load16U
+                or WasmOpcode.I64Load32S
+                or WasmOpcode.I64Load32U))
         {
             var offsetLocal = _il.DeclareLocal(typeof(int)); // temp offset value
             _memoryStoreLoadOffsetLocalIndex = offsetLocal.LocalIndex;
@@ -254,6 +264,36 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
                 break;
             case WasmOpcode.I32Load:
                 MemoryLoad(instruction, typeof(int));
+                break;
+            case WasmOpcode.I32Load8S:
+                MemoryLoad(instruction, typeof(int), 8, signExtend: true);
+                break;
+            case WasmOpcode.I32Load8U:
+                MemoryLoad(instruction, typeof(int), 8, signExtend: false);
+                break;
+            case WasmOpcode.I64Load8S:
+                MemoryLoad(instruction, typeof(long), 8, signExtend: true);
+                break;
+            case WasmOpcode.I64Load8U:
+                MemoryLoad(instruction, typeof(long), 8, signExtend: false);
+                break;
+            case WasmOpcode.I32Load16S:
+                MemoryLoad(instruction, typeof(int), 16, signExtend: true);
+                break;
+            case WasmOpcode.I32Load16U:
+                MemoryLoad(instruction, typeof(int), 16, signExtend: false);
+                break;
+            case WasmOpcode.I64Load16S:
+                MemoryLoad(instruction, typeof(long), 16, signExtend: true);
+                break;
+            case WasmOpcode.I64Load16U:
+                MemoryLoad(instruction, typeof(long), 16, signExtend: false);
+                break;
+            case WasmOpcode.I64Load32S:
+                MemoryLoad(instruction, typeof(long), 32, signExtend: true);
+                break;
+            case WasmOpcode.I64Load32U:
+                MemoryLoad(instruction, typeof(long), 32, signExtend: false);
                 break;
             case WasmOpcode.I64Load:
                 MemoryLoad(instruction, typeof(long));
@@ -535,7 +575,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         Nop();
     }
 
-    private void MemoryLoad(WasmInstruction instruction, Type t)
+    private void MemoryLoad(WasmInstruction instruction, Type t, int? bits = null, bool signExtend = false)
     {
         // stack should contain [i32]
         // i32 is the offset
@@ -559,8 +599,8 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         _il.Emit(OpCodes.Ldarg_0); // load module instance
         _il.Emit(OpCodes.Ldloc, _memoryStoreLoadOffsetLocalIndex); // load dynamic offset from temp local
         _il.Emit(OpCodes.Ldc_I4, offset); // load static offset
-        _il.Emit(OpCodes.Ldc_I4_0); // TODO: support storage size opcodes i.e. i32.store8
-        _il.Emit(OpCodes.Ldc_I4_0); // TODO: support signExtend, for now assume false
+        _il.Emit(OpCodes.Ldc_I4, bits ?? 0); // storage size i.e. i32.load8_s
+        _il.Emit(OpCodes.Ldc_I4, signExtend ? 1 : 0); // sign extend i.e. i32.load8_s
         
         var method = t == typeof(int)
             ? typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.MemoryLoadI32))!
