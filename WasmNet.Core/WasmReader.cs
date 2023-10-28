@@ -534,6 +534,7 @@ public class WasmReader
             case WasmOpcode.F64Mul:
             case WasmOpcode.F64Div:
             case WasmOpcode.I64ExtendI32S:
+            case WasmOpcode.I64ExtendI32U:
             case WasmOpcode.End:
             case WasmOpcode.Return:
             case WasmOpcode.Drop:

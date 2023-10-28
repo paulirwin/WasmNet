@@ -213,6 +213,9 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.I64ExtendI32S:
                 ConvI8();
                 break;
+            case WasmOpcode.I64ExtendI32U:
+                ConvU8();
+                break;
             case WasmOpcode.LocalGet:
                 LocalGet(instruction);
                 break;
@@ -393,6 +396,13 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         _il.Emit(OpCodes.Callvirt, typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.MemoryInit))!);
     }
 
+    private void ConvU8()
+    {
+        _il.Emit(OpCodes.Conv_U8);
+        _stack.Pop();
+        _stack.Push(typeof(long));
+    }
+    
     private void ConvI8()
     {
         _il.Emit(OpCodes.Conv_I8);
