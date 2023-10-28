@@ -65,7 +65,10 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
                 or WasmOpcode.I32Load16U
                 or WasmOpcode.I64Load16U
                 or WasmOpcode.I64Load32S
-                or WasmOpcode.I64Load32U))
+                or WasmOpcode.I64Load32U
+                or WasmOpcode.I64Store8
+                or WasmOpcode.I64Store16
+                or WasmOpcode.I64Store32))
         {
             var offsetLocal = _il.DeclareLocal(typeof(int)); // temp offset value
             _memoryStoreLoadOffsetLocalIndex = offsetLocal.LocalIndex;
@@ -79,7 +82,10 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             _memoryStoreIntLocalIndex = intLocal.LocalIndex;
         }
         
-        if (code.Body.Instructions.Any(i => i.Opcode == WasmOpcode.I64Store))
+        if (code.Body.Instructions.Any(i => i.Opcode is WasmOpcode.I64Store
+                or WasmOpcode.I64Store8
+                or WasmOpcode.I64Store16
+                or WasmOpcode.I64Store32))
         {
             var intLocal = _il.DeclareLocal(typeof(long));   // temp long value
             _memoryStoreLongLocalIndex = intLocal.LocalIndex;
@@ -261,6 +267,15 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
                 break;
             case WasmOpcode.I64Store:
                 MemoryStore(instruction, typeof(long));
+                break;
+            case WasmOpcode.I64Store8:
+                MemoryStore(instruction, typeof(long), 8);
+                break;
+            case WasmOpcode.I64Store16:
+                MemoryStore(instruction, typeof(long), 16);
+                break;
+            case WasmOpcode.I64Store32:
+                MemoryStore(instruction, typeof(long), 32);
                 break;
             case WasmOpcode.I32Load:
                 MemoryLoad(instruction, typeof(int));
