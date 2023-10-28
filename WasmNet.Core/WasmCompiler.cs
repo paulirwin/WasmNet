@@ -168,6 +168,9 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.I32Eq or WasmOpcode.I64Eq:
                 Ceq();
                 break;
+            case WasmOpcode.I32Ne or WasmOpcode.I64Ne:
+                NotEqual();
+                break;
             case WasmOpcode.I32LtS:
                 Clt();
                 break;
@@ -263,6 +266,16 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             default:
                 throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
+    }
+
+    private void NotEqual()
+    {
+        _il.Emit(OpCodes.Ceq);
+        _il.Emit(OpCodes.Ldc_I4_0);
+        _il.Emit(OpCodes.Ceq);
+        _stack.Pop();
+        _stack.Pop();
+        _stack.Push(typeof(int));
     }
 
     private void Select()

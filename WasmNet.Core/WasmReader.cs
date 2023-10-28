@@ -498,6 +498,7 @@ public class WasmReader
             case WasmOpcode.I32ShrS:
             case WasmOpcode.I32Eqz:
             case WasmOpcode.I32Eq:
+            case WasmOpcode.I32Ne:
             case WasmOpcode.I32LtS:
             case WasmOpcode.I32GtS:
             case WasmOpcode.I32LeS:
@@ -521,6 +522,7 @@ public class WasmReader
             case WasmOpcode.I64ShrS:
             case WasmOpcode.I64Eqz:
             case WasmOpcode.I64Eq:
+            case WasmOpcode.I64Ne:
             case WasmOpcode.F32Add:
             case WasmOpcode.F32Sub:
             case WasmOpcode.F32Mul:
