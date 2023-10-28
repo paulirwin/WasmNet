@@ -366,6 +366,18 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.F64Load:
                 MemoryLoad(instruction, typeof(double));
                 break;
+            case WasmOpcode.F32ConvertI32S or WasmOpcode.F32ConvertI64S:
+                ConvR4();
+                break;
+            case WasmOpcode.F32ConvertI32U or WasmOpcode.F32ConvertI64U:
+                ConvR4Un();
+                break;
+            case WasmOpcode.F64ConvertI32S or WasmOpcode.F64ConvertI64S:
+                ConvR8();
+                break;
+            case WasmOpcode.F64ConvertI32U or WasmOpcode.F64ConvertI64U:
+                ConvR8Un();
+                break;
             case WasmOpcode.I32ReinterpretF32:
                 I32ReinterpretF32();
                 break;
@@ -420,6 +432,36 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             default:
                 throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
+    }
+
+    private void ConvR8()
+    {
+        _il.Emit(OpCodes.Conv_R8);
+        _stack.Pop();
+        _stack.Push(typeof(double));
+    }
+
+    private void ConvR4Un()
+    {
+        _il.Emit(OpCodes.Conv_R_Un);
+        _il.Emit(OpCodes.Conv_R4); // cast to float in case of double
+        _stack.Pop();
+        _stack.Push(typeof(float));
+    }
+    
+    private void ConvR8Un()
+    {
+        _il.Emit(OpCodes.Conv_R_Un);
+        _il.Emit(OpCodes.Conv_R8); // cast to double in case of float
+        _stack.Pop();
+        _stack.Push(typeof(double));
+    }
+
+    private void ConvR4()
+    {
+        _il.Emit(OpCodes.Conv_R4);
+        _stack.Pop();
+        _stack.Push(typeof(float));
     }
 
     private void Truncate(Type source, Type dest, bool signed)
