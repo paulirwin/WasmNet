@@ -298,6 +298,18 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             case WasmOpcode.I64Load:
                 MemoryLoad(instruction, typeof(long));
                 break;
+            case WasmOpcode.I32ReinterpretF32:
+                I32ReinterpretF32();
+                break;
+            case WasmOpcode.I64ReinterpretF64:
+                I64ReinterpretF64();
+                break;
+            case WasmOpcode.F32ReinterpretI32:
+                F32ReinterpretI32();
+                break;
+            case WasmOpcode.F64ReinterpretI64:
+                F64ReinterpretI64();
+                break;
             case WasmOpcode.Block:
                 Block(instruction);
                 break;
@@ -322,6 +334,34 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             default:
                 throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
+    }
+
+    private void F64ReinterpretI64()
+    {
+        _il.Emit(OpCodes.Call, typeof(BitConverter).GetMethod(nameof(BitConverter.Int64BitsToDouble))!);
+        _stack.Pop();
+        _stack.Push(typeof(double));
+    }
+
+    private void F32ReinterpretI32()
+    {
+        _il.Emit(OpCodes.Call, typeof(BitConverter).GetMethod(nameof(BitConverter.Int32BitsToSingle))!);
+        _stack.Pop();
+        _stack.Push(typeof(float));
+    }
+
+    private void I64ReinterpretF64()
+    {
+        _il.Emit(OpCodes.Call, typeof(BitConverter).GetMethod(nameof(BitConverter.DoubleToInt64Bits))!);
+        _stack.Pop();
+        _stack.Push(typeof(long));
+    }
+
+    private void I32ReinterpretF32()
+    {
+        _il.Emit(OpCodes.Call, typeof(BitConverter).GetMethod(nameof(BitConverter.SingleToInt32Bits))!);
+        _stack.Pop();
+        _stack.Push(typeof(int));
     }
 
     private void NotEqual()
