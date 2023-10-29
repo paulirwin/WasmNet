@@ -8,4 +8,6 @@ public class WasmExpressionValue(Expression expr) : WasmValue
         => other is WasmExpressionValue value && value.Expression == Expression;
 
     public override int GetHashCode() => Expression.GetHashCode();
+    
+    public override string ToString() => Expression.ToString() ?? "null";
 }

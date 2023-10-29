@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace WasmNet.Core;
 
 public class WasmI32VectorValue(int[] values) : WasmValue
@@ -40,5 +42,14 @@ public class WasmI32VectorValue(int[] values) : WasmValue
 
             return hash;
         }
+    }
+
+    public override string ToString()
+    {
+        var sb = new StringBuilder();
+        sb.Append('[');
+        sb.Append(string.Join(", ", Values));
+        sb.Append(']');
+        return sb.ToString();
     }
 }

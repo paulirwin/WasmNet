@@ -8,4 +8,6 @@ public class FunctionReference(int address) : Reference
     
     public override bool Equals(object? obj) 
         => obj is FunctionReference reference && reference.Address == Address;
+    
+    public override string ToString() => $"(ref.func {Address})";
 }

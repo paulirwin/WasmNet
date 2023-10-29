@@ -88,6 +88,11 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
                 catch (Exception ex)
                 {
                     exception = ex;
+                    
+                    while (exception is TargetInvocationException tie)
+                    {
+                        exception = tie.InnerException;
+                    }
                 }
             }
             else if (op is GlobalOperation or MemoryOperation)
@@ -137,22 +142,12 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
             }
             else if (op is ExpectTrapOperation expectTrap)
             {
-                while (exception is TargetInvocationException tie)
-                {
-                    exception = tie.InnerException;
-                }
-                
                 Assert.NotNull(exception);
                 Assert.Equal(expectTrap.ExceptionType, exception.GetType().Name);
                 testOutputHelper.WriteLine($"Exception is of type {exception.GetType().Name}: {exception.Message}");
             }
             else if (op is ExitCodeOperation exitCode)
             {
-                while (exception is TargetInvocationException tie)
-                {
-                    exception = tie.InnerException;
-                }
-                
                 if (exception is not ExitCodeException ece)
                 {
                     throw new Exception($"Expected exit code {exitCode.ExitCode} but the program did not exit");
@@ -163,6 +158,11 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
             }
             else if (op is OutputOperation outputOp)
             {
+                if (exception is not null)
+                {
+                    throw new Exception($"Expected output \"{outputOp.Text.Replace("\n", "\\n")}\" but it threw an exception: {exception}");
+                }
+                
                 Assert.Equal(outputOp.Text, output.ToString());
                 testOutputHelper.WriteLine($"Expected output: {outputOp.Text.Replace("\n", "\\n")}");
                 testOutputHelper.WriteLine($"Actual output: {output.ToString().Replace("\n", "\\n")}");

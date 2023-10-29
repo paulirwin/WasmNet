@@ -24,7 +24,10 @@ if (args.Length > 1 && args[1] == "--invoke")
 
     var result = runtime.Invoke(module, function, invokeArgs);
 
-    Console.WriteLine(JsonSerializer.Serialize(result));
+    if (result != null)
+    {
+        Console.WriteLine(JsonSerializer.Serialize(result));
+    }
 }
 else
 {

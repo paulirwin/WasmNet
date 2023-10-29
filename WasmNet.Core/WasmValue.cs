@@ -5,4 +5,6 @@ public abstract class WasmValue
     public abstract override bool Equals(object? other);
     
     public abstract override int GetHashCode();
+
+    public abstract override string ToString();
 }

@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace WasmNet.Core;
 
 public class WasmInstruction(WasmOpcode opcode, params WasmValue[] operands)
@@ -22,5 +24,19 @@ public class WasmInstruction(WasmOpcode opcode, params WasmValue[] operands)
         }
         
         return hash.ToHashCode();
+    }
+
+    public override string ToString()
+    {
+        var sb = new StringBuilder();
+        sb.Append(Opcode);
+        
+        if (Operands.Count > 0)
+        {
+            sb.Append(' ');
+            sb.Append(string.Join(' ', Operands));
+        }
+
+        return sb.ToString();
     }
 }

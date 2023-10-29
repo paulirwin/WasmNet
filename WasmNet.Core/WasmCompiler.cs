@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Emit;
 
@@ -134,6 +135,8 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void CompileInstruction(WasmInstruction instruction)
     {
+        Debug.WriteLine($"Compiling {instruction} (stack: [{StackAsString}])");
+        
         switch (instruction.Opcode)
         {
             case WasmOpcode.Unreachable:
@@ -434,6 +437,16 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         }
     }
 
+    private string StackAsString => string.Join(", ", _stack.Reverse()
+        .Select(i => i.FullName switch
+        {
+            "System.Int32" => "i32",
+            "System.Int64" => "i64",
+            "System.Single" => "f32",
+            "System.Double" => "f64",
+            _ => i.FullName
+        }));
+
     private void ConvR8()
     {
         _il.Emit(OpCodes.Conv_R8);
@@ -609,7 +622,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         }
         
         _il.Emit(OpCodes.Call, typeof(SelectFunctions).GetMethod(nameof(SelectFunctions.Select))!.MakeGenericMethod(type2));
-        _stack.Push(type);
+        _stack.Push(type2);
     }
 
     private void Cgt_Un()

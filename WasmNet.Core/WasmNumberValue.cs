@@ -12,6 +12,8 @@ public abstract class WasmNumberValue<T>(WasmNumberType type, T value) : WasmVal
     public override bool Equals(object? obj) => obj is WasmNumberValue<T> value && value.Value.Equals(Value);
     
     public override int GetHashCode() => Value.GetHashCode();
+
+    public override string ToString() => Value.ToString() ?? throw new InvalidOperationException("Value.ToString() returned null");
 }
 
 public class WasmI32Value(int value) 
