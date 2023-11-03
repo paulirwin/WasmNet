@@ -1,14 +1,14 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Emit;
+using WasmNet.Core.ILGeneration;
 
 namespace WasmNet.Core;
 
-public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType type, WasmCode code)
+public class WasmCompiler(IILGenerator il, ModuleInstance module, MethodBuilder method, WasmType type, WasmCode code)
 {
-    private readonly ILGenerator _il = method.GetILGenerator();
     private readonly Stack<Type> _stack = new();
-    private readonly Stack<Label> _labels = new();
+    private readonly Stack<ILLabel> _labels = new();
     
     private int _callArgsLocalIndex = -1, 
         _callTempLocalIndex = -1,
@@ -25,7 +25,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     public static void CompileFunction(ModuleInstance module, MethodBuilder method, WasmType type, WasmCode code)
     {
-        var compiler = new WasmCompiler(module, method, type, code);
+        var compiler = new WasmCompiler(new ReflectionEmitILGenerator(method), module, method, type, code);
         compiler.CompileFunction();
     }
     
@@ -35,22 +35,22 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
         if (code.Body.Instructions.Any(i => i.Opcode is WasmOpcode.Call or WasmOpcode.CallIndirect))
         {
-            var argsLocal = _il.DeclareLocal(typeof(object[])); // args
+            var argsLocal = il.DeclareLocal(typeof(object[])); // args
             _callArgsLocalIndex = argsLocal.LocalIndex;
             
-            var tempLocal = _il.DeclareLocal(typeof(object));   // temp array value for arg
+            var tempLocal = il.DeclareLocal(typeof(object));   // temp array value for arg
             _callTempLocalIndex = tempLocal.LocalIndex;
         }
         
         if (code.Body.Instructions.Any(i => i.Opcode == WasmOpcode.CallIndirect))
         {
-            var elementLocal = _il.DeclareLocal(typeof(int));   // temp array value for element index
+            var elementLocal = il.DeclareLocal(typeof(int));   // temp array value for element index
             _callIndirectElementLocalIndex = elementLocal.LocalIndex;
         }
 
         if (code.Body.Instructions.Any(i => i.Opcode == WasmOpcode.GlobalSet))
         {
-            var tempLocal = _il.DeclareLocal(typeof(object));   // temp global value
+            var tempLocal = il.DeclareLocal(typeof(object));   // temp global value
             _globalTempLocalIndex = tempLocal.LocalIndex;
         }
 
@@ -76,7 +76,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
                 or WasmOpcode.F32Load
                 or WasmOpcode.F64Load))
         {
-            var offsetLocal = _il.DeclareLocal(typeof(int)); // temp offset value
+            var offsetLocal = il.DeclareLocal(typeof(int)); // temp offset value
             _memoryStoreLoadOffsetLocalIndex = offsetLocal.LocalIndex;
         }
 
@@ -84,19 +84,19 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
                 or WasmOpcode.I32Store8
                 or WasmOpcode.I32Store16))
         {
-            var intLocal = _il.DeclareLocal(typeof(int));   // temp int value
+            var intLocal = il.DeclareLocal(typeof(int));   // temp int value
             _memoryStoreIntLocalIndex = intLocal.LocalIndex;
         }
         
         if (code.Body.Instructions.Any(i => i.Opcode is WasmOpcode.F32Store))
         {
-            var floatLocal = _il.DeclareLocal(typeof(float));   // temp float value
+            var floatLocal = il.DeclareLocal(typeof(float));   // temp float value
             _memoryStoreSingleLocalIndex = floatLocal.LocalIndex;
         }
         
         if (code.Body.Instructions.Any(i => i.Opcode is WasmOpcode.F64Store))
         {
-            var doubleLocal = _il.DeclareLocal(typeof(double));   // temp double value
+            var doubleLocal = il.DeclareLocal(typeof(double));   // temp double value
             _memoryStoreDoubleLocalIndex = doubleLocal.LocalIndex;
         }
         
@@ -105,19 +105,19 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
                 or WasmOpcode.I64Store16
                 or WasmOpcode.I64Store32))
         {
-            var intLocal = _il.DeclareLocal(typeof(long));   // temp long value
+            var intLocal = il.DeclareLocal(typeof(long));   // temp long value
             _memoryStoreLongLocalIndex = intLocal.LocalIndex;
         }
         
         if (code.Body.Instructions.Any(i => i.Opcode == WasmOpcode.MemoryInit))
         {
-            var destLocal = _il.DeclareLocal(typeof(int));   // temp dest value
+            var destLocal = il.DeclareLocal(typeof(int));   // temp dest value
             _memoryInitDestLocalIndex = destLocal.LocalIndex;
             
-            var srcLocal = _il.DeclareLocal(typeof(int));   // temp src value
+            var srcLocal = il.DeclareLocal(typeof(int));   // temp src value
             _memoryInitSrcLocalIndex = srcLocal.LocalIndex;
             
-            var countLocal = _il.DeclareLocal(typeof(int));   // temp count value
+            var countLocal = il.DeclareLocal(typeof(int));   // temp count value
             _memoryInitCountLocalIndex = countLocal.LocalIndex;
         }
         
@@ -449,30 +449,30 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void ConvR8()
     {
-        _il.Emit(OpCodes.Conv_R8);
+        il.Emit(ILOpcode.ConvR8);
         _stack.Pop();
         _stack.Push(typeof(double));
     }
 
     private void ConvR4Un()
     {
-        _il.Emit(OpCodes.Conv_R_Un);
-        _il.Emit(OpCodes.Conv_R4); // cast to float in case of double
+        il.Emit(ILOpcode.ConvRUn);
+        il.Emit(ILOpcode.ConvR4); // cast to float in case of double
         _stack.Pop();
         _stack.Push(typeof(float));
     }
     
     private void ConvR8Un()
     {
-        _il.Emit(OpCodes.Conv_R_Un);
-        _il.Emit(OpCodes.Conv_R8); // cast to double in case of float
+        il.Emit(ILOpcode.ConvRUn);
+        il.Emit(ILOpcode.ConvR8); // cast to double in case of float
         _stack.Pop();
         _stack.Push(typeof(double));
     }
 
     private void ConvR4()
     {
-        _il.Emit(OpCodes.Conv_R4);
+        il.Emit(ILOpcode.ConvR4);
         _stack.Pop();
         _stack.Push(typeof(float));
     }
@@ -488,11 +488,25 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         
         if (dest == typeof(int))
         {
-            _il.Emit(signed ? OpCodes.Conv_Ovf_I4 : OpCodes.Conv_Ovf_I4_Un);
+            if (signed)
+            {
+                il.Emit(ILOpcode.ConvOvfI4);
+            }
+            else
+            {
+                il.Emit(ILOpcode.ConvOvfI4Un);
+            }
         }
         else if (dest == typeof(long))
         {
-            _il.Emit(signed ? OpCodes.Conv_Ovf_I8 : OpCodes.Conv_Ovf_I8_Un);
+            if (signed)
+            {
+                il.Emit(ILOpcode.ConvOvfI8);
+            }
+            else
+            {
+                il.Emit(ILOpcode.ConvOvfI8Un);
+            }
         }
         else
         {
@@ -504,21 +518,21 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void F64Abs()
     {
-        _il.Emit(OpCodes.Call, typeof(Math).GetMethod(nameof(Math.Abs), new[] { typeof(double) })!);
+        il.EmitCall(typeof(Math).GetMethod(nameof(Math.Abs), new[] { typeof(double) })!);
         _stack.Pop();
         _stack.Push(typeof(double));
     }
 
     private void Neg(Type t)
     {
-        _il.Emit(OpCodes.Neg);
+        il.Emit(ILOpcode.Neg);
         _stack.Pop();
         _stack.Push(t);
     }
 
     private void F32Abs()
     {
-        _il.Emit(OpCodes.Call, typeof(MathF).GetMethod(nameof(MathF.Abs))!);
+        il.EmitCall(typeof(MathF).GetMethod(nameof(MathF.Abs))!);
         _stack.Pop();
         _stack.Push(typeof(float));
     }
@@ -547,59 +561,59 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             throw new InvalidOperationException($"br_table expects i32 but stack contains {type}");
         }
         
-        _il.Emit(OpCodes.Switch, labels.Select(i => _labels.ElementAt(i)).ToArray());
+        il.EmitSwitch(labels.Select(i => _labels.ElementAt(i)).ToArray());
 
         if (defaultLabelIndex == 0 && _labels.Count == 0)
         {
-            _il.Emit(OpCodes.Ret);
+            il.Emit(ILOpcode.Ret);
         }
         else
         {
             var defaultLabel = _labels.ElementAt(defaultLabelIndex);
-            _il.Emit(OpCodes.Br, defaultLabel);
+            il.EmitBr(defaultLabel);
         }
     }
 
     private void ConvI4()
     {
-        _il.Emit(OpCodes.Conv_I4);
+        il.Emit(ILOpcode.ConvI4);
         _stack.Pop();
         _stack.Push(typeof(int));
     }
 
     private void F64ReinterpretI64()
     {
-        _il.Emit(OpCodes.Call, typeof(BitConverter).GetMethod(nameof(BitConverter.Int64BitsToDouble))!);
+        il.EmitCall(typeof(BitConverter).GetMethod(nameof(BitConverter.Int64BitsToDouble))!);
         _stack.Pop();
         _stack.Push(typeof(double));
     }
 
     private void F32ReinterpretI32()
     {
-        _il.Emit(OpCodes.Call, typeof(BitConverter).GetMethod(nameof(BitConverter.Int32BitsToSingle))!);
+        il.EmitCall(typeof(BitConverter).GetMethod(nameof(BitConverter.Int32BitsToSingle))!);
         _stack.Pop();
         _stack.Push(typeof(float));
     }
 
     private void I64ReinterpretF64()
     {
-        _il.Emit(OpCodes.Call, typeof(BitConverter).GetMethod(nameof(BitConverter.DoubleToInt64Bits))!);
+        il.EmitCall(typeof(BitConverter).GetMethod(nameof(BitConverter.DoubleToInt64Bits))!);
         _stack.Pop();
         _stack.Push(typeof(long));
     }
 
     private void I32ReinterpretF32()
     {
-        _il.Emit(OpCodes.Call, typeof(BitConverter).GetMethod(nameof(BitConverter.SingleToInt32Bits))!);
+        il.EmitCall(typeof(BitConverter).GetMethod(nameof(BitConverter.SingleToInt32Bits))!);
         _stack.Pop();
         _stack.Push(typeof(int));
     }
 
     private void NotEqual()
     {
-        _il.Emit(OpCodes.Ceq);
-        _il.Emit(OpCodes.Ldc_I4_0);
-        _il.Emit(OpCodes.Ceq);
+        il.Emit(ILOpcode.Ceq);
+        il.EmitLdcI4(0);
+        il.Emit(ILOpcode.Ceq);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(typeof(int));
@@ -621,13 +635,13 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             throw new InvalidOperationException("Select expects its two values to be the same type");
         }
         
-        _il.Emit(OpCodes.Call, typeof(SelectFunctions).GetMethod(nameof(SelectFunctions.Select))!.MakeGenericMethod(type2));
+        il.EmitCall(typeof(SelectFunctions).GetMethod(nameof(SelectFunctions.Select))!.MakeGenericMethod(type2));
         _stack.Push(type2);
     }
 
     private void Cgt_Un()
     {
-        _il.Emit(OpCodes.Cgt_Un);
+        il.Emit(ILOpcode.CgtUn);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(typeof(int));
@@ -635,7 +649,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void Clt_Un()
     {
-        _il.Emit(OpCodes.Clt_Un);
+        il.Emit(ILOpcode.CltUn);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(typeof(int));
@@ -643,8 +657,8 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void Unreachable()
     {
-        _il.Emit(OpCodes.Newobj, typeof(UnreachableException).GetConstructor(Type.EmptyTypes)!);
-        _il.Emit(OpCodes.Throw);
+        il.EmitNewobj(typeof(UnreachableException).GetConstructor(Type.EmptyTypes)!);
+        il.Emit(ILOpcode.Throw);
     }
 
     private void DataDrop(WasmInstruction instruction)
@@ -659,10 +673,10 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             throw new InvalidOperationException("data.drop expects first argument to be the data index");
         }
 
-        _il.Emit(OpCodes.Ldarg_0); // load module instance
-        _il.Emit(OpCodes.Ldc_I4, x); // load data index
+        il.EmitLdarg(0); // load module instance
+        il.EmitLdcI4(x); // load data index
         
-        _il.Emit(OpCodes.Callvirt, typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.DataDrop))!);
+        il.EmitCallVirt(typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.DataDrop))!);
     }
 
     private void MemoryInit(WasmInstruction instruction)
@@ -682,71 +696,71 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             throw new InvalidOperationException("memory.init expects i32 count but stack contains {argType}");
         }
         
-        _il.Emit(OpCodes.Stloc, _memoryInitCountLocalIndex);
+        il.EmitStloc(_memoryInitCountLocalIndex);
         
         if (_stack.Pop() != typeof(int))
         {
             throw new InvalidOperationException("memory.init expects i32 src but stack contains {argType}");
         }
         
-        _il.Emit(OpCodes.Stloc, _memoryInitSrcLocalIndex);
+        il.EmitStloc(_memoryInitSrcLocalIndex);
         
         if (_stack.Pop() != typeof(int))
         {
             throw new InvalidOperationException("memory.init expects i32 dest but stack contains {argType}");
         }
         
-        _il.Emit(OpCodes.Stloc, _memoryInitDestLocalIndex);
+        il.EmitStloc(_memoryInitDestLocalIndex);
         
-        _il.Emit(OpCodes.Ldarg_0); // load module instance
-        _il.Emit(OpCodes.Ldc_I4, x); // load data index
-        _il.Emit(OpCodes.Ldloc, _memoryInitDestLocalIndex); // load dest
-        _il.Emit(OpCodes.Ldloc, _memoryInitSrcLocalIndex); // load src
-        _il.Emit(OpCodes.Ldloc, _memoryInitCountLocalIndex); // load count
+        il.EmitLdarg(0); // load module instance
+        il.EmitLdcI4(x); // load data index
+        il.EmitLdloc(_memoryInitDestLocalIndex); // load dest
+        il.EmitLdloc(_memoryInitSrcLocalIndex); // load src
+        il.EmitLdloc(_memoryInitCountLocalIndex); // load count
         
-        _il.Emit(OpCodes.Callvirt, typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.MemoryInit))!);
+        il.EmitCallVirt(typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.MemoryInit))!);
     }
 
     private void ConvU8()
     {
-        _il.Emit(OpCodes.Conv_U8);
+        il.Emit(ILOpcode.ConvU8);
         _stack.Pop();
         _stack.Push(typeof(long));
     }
     
     private void ConvI8()
     {
-        _il.Emit(OpCodes.Conv_I8);
+        il.Emit(ILOpcode.ConvI8);
         _stack.Pop();
         _stack.Push(typeof(long));
     }
 
     private void Pop()
     {
-        _il.Emit(OpCodes.Pop);
+        il.Emit(ILOpcode.Pop);
         _stack.Pop();
     }
 
     private void LocalTee(WasmInstruction instruction)
     {
         var type = _stack.Peek();
-        _il.Emit(OpCodes.Dup); // duplicate value on stack
+        il.Emit(ILOpcode.Dup); // duplicate value on stack
         _stack.Push(type); // push duplicated value type onto stack
         LocalSet(instruction); // set local
     }
 
     private void I32Eqz()
     {
-        _il.Emit(OpCodes.Ldc_I4_0);
-        _il.Emit(OpCodes.Ceq);
+        il.EmitLdcI4(0);
+        il.Emit(ILOpcode.Ceq);
         _stack.Pop();
         _stack.Push(typeof(int));
     }
     
     private void I64Eqz()
     {
-        _il.Emit(OpCodes.Ldc_I8, 0L);
-        _il.Emit(OpCodes.Ceq);
+        il.EmitLdcI8(0L);
+        il.Emit(ILOpcode.Ceq);
         _stack.Pop();
         _stack.Push(typeof(int));
     }
@@ -760,7 +774,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             throw new InvalidOperationException();
 
         var label = _labels.ElementAt(labelIndex);
-        _il.Emit(OpCodes.Br, label);
+        il.EmitBr(label);
     }
     
     private void BrIf(WasmInstruction instruction)
@@ -779,12 +793,12 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             throw new InvalidOperationException($"BrIf expects i32 but stack contains {type}");
         }
         
-        _il.Emit(OpCodes.Brtrue, label);
+        il.EmitBrTrue(label);
     }
     
-    private Label CreateWasmVisibleLabel()
+    private ILLabel CreateWasmVisibleLabel()
     {
-        var label = _il.DefineLabel();
+        var label = il.DefineLabel();
         _labels.Push(label);
         return label;
     }
@@ -812,13 +826,13 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         }
 
         Nop();
-        _il.MarkLabel(label);
+        il.MarkLabel(label);
         _labels.Pop();
     }
 
     private void Nop()
     {
-        _il.Emit(OpCodes.Nop);
+        il.Emit(ILOpcode.Nop);
     }
 
     private void Loop(WasmInstruction instruction)
@@ -836,7 +850,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             throw new NotImplementedException("Only empty block types are supported");
 
         var label = CreateWasmVisibleLabel();
-        _il.MarkLabel(label);
+        il.MarkLabel(label);
         Nop();
         
         foreach (var exprInstruction in expression.Instructions)
@@ -867,16 +881,16 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
             throw new InvalidOperationException($"Memory load expects i32 offset but stack contains {offsetType}");
         }
         
-        _il.Emit(OpCodes.Stloc, _memoryStoreLoadOffsetLocalIndex); // store offset in temp local
+        il.EmitStloc(_memoryStoreLoadOffsetLocalIndex); // store offset in temp local
         
-        _il.Emit(OpCodes.Ldarg_0); // load module instance
-        _il.Emit(OpCodes.Ldloc, _memoryStoreLoadOffsetLocalIndex); // load dynamic offset from temp local
-        _il.Emit(OpCodes.Ldc_I4, offset); // load static offset
+        il.EmitLdarg(0); // load module instance
+        il.EmitLdloc(_memoryStoreLoadOffsetLocalIndex); // load dynamic offset from temp local
+        il.EmitLdcI4(offset); // load static offset
 
         if (t == typeof(int) || t == typeof(long))
         {
-            _il.Emit(OpCodes.Ldc_I4, bits ?? 0); // storage size i.e. i32.load8_s
-            _il.Emit(OpCodes.Ldc_I4, signExtend ? 1 : 0); // sign extend i.e. i32.load8_s
+            il.EmitLdcI4(bits ?? 0); // storage size i.e. i32.load8_s
+            il.EmitLdcI4(signExtend ? 1 : 0); // sign extend i.e. i32.load8_s
         }
 
         MethodInfo method;
@@ -892,7 +906,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         else
             throw new InvalidOperationException($"Memory load expects int, long, float or double but got {t}");
 
-        _il.Emit(OpCodes.Callvirt, method); // load from memory
+        il.EmitCallVirt(method); // load from memory
         _stack.Push(t);
     }
     
@@ -937,16 +951,16 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         else
             throw new InvalidOperationException($"Memory store expects int, long, float or double but got {t}");
 
-        _il.Emit(OpCodes.Stloc, localIndex); // store arg in temp local
-        _il.Emit(OpCodes.Stloc, _memoryStoreLoadOffsetLocalIndex); // store offset in temp local
+        il.EmitStloc(localIndex); // store arg in temp local
+        il.EmitStloc(_memoryStoreLoadOffsetLocalIndex); // store offset in temp local
         
-        _il.Emit(OpCodes.Ldarg_0); // load module instance
-        _il.Emit(OpCodes.Ldloc, _memoryStoreLoadOffsetLocalIndex); // load dynamic offset
-        _il.Emit(OpCodes.Ldloc, localIndex); // load value from temp local
-        _il.Emit(OpCodes.Ldc_I4, offset); // load static offset
+        il.EmitLdarg(0); // load module instance
+        il.EmitLdloc(_memoryStoreLoadOffsetLocalIndex); // load dynamic offset
+        il.EmitLdloc(localIndex); // load value from temp local
+        il.EmitLdcI4(offset); // load static offset
         
         if (t == typeof(int) || t == typeof(long))
-            _il.Emit(OpCodes.Ldc_I4, bits ?? 0); // to support i.e. i32.store8
+            il.EmitLdcI4(bits ?? 0); // to support i.e. i32.store8
         
         MethodInfo method;
 
@@ -961,7 +975,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         else
             throw new InvalidOperationException($"Memory store expects int, long, float or double but got {t}");
 
-        _il.Emit(OpCodes.Callvirt, method); // store in memory
+        il.EmitCallVirt(method); // store in memory
     }
 
     private void RefFunc(WasmInstruction instruction)
@@ -972,9 +986,9 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         if (instruction.Operands[0] is not WasmNumberValue<int> { Value: var numberValue })
             throw new InvalidOperationException();
 
-        _il.Emit(OpCodes.Ldarg_0); // load module instance
-        _il.Emit(OpCodes.Ldc_I4, numberValue); // load function index
-        _il.Emit(OpCodes.Callvirt, typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.GetFunctionReference))!); // get function reference
+        il.EmitLdarg(0); // load module instance
+        il.EmitLdcI4(numberValue); // load function index
+        il.EmitCallVirt(typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.GetFunctionReference))!); // get function reference
         // stack now contains function reference
 
         _stack.Push(typeof(FunctionReference));
@@ -986,7 +1000,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         {
             for (var i = 0; i < local.Count; i++)
             {
-                _il.DeclareLocal(local.Type.DotNetType);
+                il.DeclareLocal(local.Type.DotNetType);
             }
         }
     }
@@ -1018,16 +1032,15 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
         if (argType.IsValueType)
         {
-            _il.Emit(OpCodes.Box, argType); // box value type
+            il.EmitBox(argType); // box value type
         }
 
-        _il.Emit(OpCodes.Stloc, _globalTempLocalIndex); // store arg in temp local
+        il.EmitStloc(_globalTempLocalIndex); // store arg in temp local
 
-        _il.Emit(OpCodes.Ldarg_0); // load module instance
-        _il.Emit(OpCodes.Ldc_I4, globalIndex); // load global index
-        _il.Emit(OpCodes.Ldloc, _globalTempLocalIndex); // load arg from temp local
-        _il.Emit(OpCodes.Callvirt,
-            typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.SetGlobalValue))!); // set global instance
+        il.EmitLdarg(0); // load module instance
+        il.EmitLdcI4(globalIndex); // load global index
+        il.EmitLdloc(_globalTempLocalIndex); // load arg from temp local
+        il.EmitCallVirt(typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.SetGlobalValue))!); // set global instance
     }
 
     private void GlobalGet(WasmInstruction instruction)
@@ -1043,15 +1056,14 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         var globalRef = module.GetGlobal(globalIndex);
         var globalType = globalRef.Global.Type.DotNetType;
 
-        _il.Emit(OpCodes.Ldarg_0); // load module instance
-        _il.Emit(OpCodes.Ldc_I4, globalIndex); // load global index
-        _il.Emit(OpCodes.Callvirt,
-            typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.GetGlobalValue))!); // get global instance
+        il.EmitLdarg(0); // load module instance
+        il.EmitLdcI4(globalIndex); // load global index
+        il.EmitCallVirt(typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.GetGlobalValue))!); // get global instance
         // stack now contains global value
 
         if (globalType.IsValueType)
         {
-            _il.Emit(OpCodes.Unbox_Any, globalRef.Global.Type.DotNetType); // unbox global value
+            il.EmitUnboxAny(globalRef.Global.Type.DotNetType); // unbox global value
         }
 
         _stack.Push(globalType);
@@ -1074,16 +1086,15 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         PrepareCallArgsArray(type.Parameters.Count);
 
         // stack now contains the element index int, store to local
-        _il.Emit(OpCodes.Stloc, _callIndirectElementLocalIndex);
+        il.EmitStloc(_callIndirectElementLocalIndex);
         _stack.Pop();
         
-        _il.Emit(OpCodes.Ldarg_0); // load module instance
-        _il.Emit(OpCodes.Ldc_I4, tableIndexValue); // load table index
-        _il.Emit(OpCodes.Ldc_I4, typeIndexValue); // load type index
-        _il.Emit(OpCodes.Ldloc, _callIndirectElementLocalIndex); // load element index
-        _il.Emit(OpCodes.Ldloc, _callArgsLocalIndex); // load args array
-        _il.Emit(OpCodes.Callvirt,
-            typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.CallIndirect))!); // get function instance
+        il.EmitLdarg(0); // load module instance
+        il.EmitLdcI4(tableIndexValue); // load table index
+        il.EmitLdcI4(typeIndexValue); // load type index
+        il.EmitLdloc(_callIndirectElementLocalIndex); // load element index
+        il.EmitLdloc(_callArgsLocalIndex); // load args array
+        il.EmitCallVirt(typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.CallIndirect))!); // get function instance
         // stack now contains return value
         _stack.Push(returnType);
 
@@ -1092,9 +1103,9 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void PrepareCallArgsArray(int paramCount)
     {
-        _il.Emit(OpCodes.Ldc_I4, paramCount); // num_args = # of args
-        _il.Emit(OpCodes.Newarr, typeof(object)); // new object[num_args]
-        _il.Emit(OpCodes.Stloc, _callArgsLocalIndex); // store array in local
+        il.EmitLdcI4(paramCount); // num_args = # of args
+        il.EmitNewarr(typeof(object)); // new object[num_args]
+        il.EmitStloc(_callArgsLocalIndex); // store array in local
 
         var stackValues = _stack.ToList();
 
@@ -1113,14 +1124,14 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
             if (stackType.IsValueType)
             {
-                _il.Emit(OpCodes.Box, stackType); // box value type
+                il.EmitBox(stackType); // box value type
             }
 
-            _il.Emit(OpCodes.Stloc, _callTempLocalIndex); // store arg in temp local
-            _il.Emit(OpCodes.Ldloc, _callArgsLocalIndex); // load array
-            _il.Emit(OpCodes.Ldc_I4, paramIndex); // array index
-            _il.Emit(OpCodes.Ldloc, _callTempLocalIndex); // load arg from temp local
-            _il.Emit(OpCodes.Stelem_Ref); // args[index] = arg
+            il.EmitStloc(_callTempLocalIndex); // store arg in temp local
+            il.EmitLdloc(_callArgsLocalIndex); // load array
+            il.EmitLdcI4(paramIndex); // array index
+            il.EmitLdloc(_callTempLocalIndex); // load arg from temp local
+            il.Emit(ILOpcode.StelemRef); // args[index] = arg
             _stack.Pop();
         }
     }
@@ -1131,15 +1142,13 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
         PrepareCallArgsArray(funcInstance.ParameterTypes.Length);
 
-        _il.Emit(OpCodes.Ldarg_0); // load module instance
-        _il.Emit(OpCodes.Ldc_I4, funcIndex); // load function index
-        _il.Emit(OpCodes.Callvirt,
-            typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.GetFunction))!); // get function instance
+        il.EmitLdarg(0); // load module instance
+        il.EmitLdcI4(funcIndex); // load function index
+        il.EmitCallVirt(typeof(ModuleInstance).GetMethod(nameof(ModuleInstance.GetFunction))!); // get function instance
         // stack now contains function instance
 
-        _il.Emit(OpCodes.Ldloc, _callArgsLocalIndex); // load args array
-        _il.Emit(OpCodes.Callvirt,
-            typeof(IFunctionInstance).GetMethod(nameof(IFunctionInstance.Invoke))!); // invoke function
+        il.EmitLdloc(_callArgsLocalIndex); // load args array
+        il.EmitCallVirt(typeof(IFunctionInstance).GetMethod(nameof(IFunctionInstance.Invoke))!); // invoke function
         // stack now contains return value
         _stack.Push(funcInstance.ReturnType);
 
@@ -1154,7 +1163,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         }
         else if (returnType.IsValueType)
         {
-            _il.Emit(OpCodes.Unbox_Any, returnType); // unbox return value
+            il.EmitUnboxAny(returnType); // unbox return value
         }
     }
 
@@ -1168,12 +1177,12 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
         if (numberValue.Value < type.Parameters.Count)
         {
-            _il.Emit(OpCodes.Starg, numberValue.Value + 1);
+            il.EmitStarg(numberValue.Value + 1);
             _stack.Pop();
         }
         else
         {
-            _il.Emit(OpCodes.Stloc, numberValue.Value - type.Parameters.Count);
+            il.EmitStloc(numberValue.Value - type.Parameters.Count);
             _stack.Pop();
         }
     }
@@ -1188,19 +1197,19 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
         if (numberValue.Value < type.Parameters.Count)
         {
-            _il.Emit(OpCodes.Ldarg, numberValue.Value + 1);
+            il.EmitLdarg(numberValue.Value + 1);
             _stack.Push(type.Parameters[numberValue.Value].DotNetType);
         }
         else
         {
-            _il.Emit(OpCodes.Ldloc, numberValue.Value - type.Parameters.Count);
+            il.EmitLdloc(numberValue.Value - type.Parameters.Count);
             _stack.Push(code.Locals[numberValue.Value - type.Parameters.Count].Type.DotNetType);
         }
     }
 
     private void Ceq()
     {
-        _il.Emit(OpCodes.Ceq);
+        il.Emit(ILOpcode.Ceq);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(typeof(int));
@@ -1208,7 +1217,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
     
     private void Clt()
     {
-        _il.Emit(OpCodes.Clt);
+        il.Emit(ILOpcode.Clt);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(typeof(int));
@@ -1216,7 +1225,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
     
     private void Cgt()
     {
-        _il.Emit(OpCodes.Cgt);
+        il.Emit(ILOpcode.Cgt);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(typeof(int));
@@ -1224,7 +1233,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void ShrUn(WasmInstruction instruction)
     {
-        _il.Emit(OpCodes.Shr_Un);
+        il.Emit(ILOpcode.ShrUn);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(instruction.Opcode switch
@@ -1237,7 +1246,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void Shr(WasmInstruction instruction)
     {
-        _il.Emit(OpCodes.Shr);
+        il.Emit(ILOpcode.Shr);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(instruction.Opcode switch
@@ -1250,7 +1259,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void Shl(WasmInstruction instruction)
     {
-        _il.Emit(OpCodes.Shl);
+        il.Emit(ILOpcode.Shl);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(instruction.Opcode switch
@@ -1263,7 +1272,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void Xor(WasmInstruction instruction)
     {
-        _il.Emit(OpCodes.Xor);
+        il.Emit(ILOpcode.Xor);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(instruction.Opcode switch
@@ -1276,7 +1285,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void Or(WasmInstruction instruction)
     {
-        _il.Emit(OpCodes.Or);
+        il.Emit(ILOpcode.Or);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(instruction.Opcode switch
@@ -1289,7 +1298,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void And(WasmInstruction instruction)
     {
-        _il.Emit(OpCodes.And);
+        il.Emit(ILOpcode.And);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(instruction.Opcode switch
@@ -1302,7 +1311,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void RemUn(WasmInstruction instruction)
     {
-        _il.Emit(OpCodes.Rem_Un);
+        il.Emit(ILOpcode.RemUn);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(instruction.Opcode switch
@@ -1315,7 +1324,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void Rem(WasmInstruction instruction)
     {
-        _il.Emit(OpCodes.Rem);
+        il.Emit(ILOpcode.Rem);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(instruction.Opcode switch
@@ -1328,7 +1337,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void DivUn(WasmInstruction instruction)
     {
-        _il.Emit(OpCodes.Div_Un);
+        il.Emit(ILOpcode.DivUn);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(instruction.Opcode switch
@@ -1341,7 +1350,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void Div(WasmInstruction instruction)
     {
-        _il.Emit(OpCodes.Div);
+        il.Emit(ILOpcode.Div);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(instruction.Opcode switch
@@ -1356,7 +1365,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void Mul(WasmInstruction instruction)
     {
-        _il.Emit(OpCodes.Mul);
+        il.Emit(ILOpcode.Mul);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(instruction.Opcode switch
@@ -1371,7 +1380,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void Sub(WasmInstruction instruction)
     {
-        _il.Emit(OpCodes.Sub);
+        il.Emit(ILOpcode.Sub);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(instruction.Opcode switch
@@ -1386,7 +1395,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
 
     private void Add(WasmInstruction instruction)
     {
-        _il.Emit(OpCodes.Add);
+        il.Emit(ILOpcode.Add);
         _stack.Pop();
         _stack.Pop();
         _stack.Push(instruction.Opcode switch
@@ -1407,7 +1416,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         if (instruction.Operands[0] is not WasmNumberValue<double> numberValue)
             throw new InvalidOperationException();
 
-        _il.Emit(OpCodes.Ldc_R8, numberValue.Value);
+        il.EmitLdcR8(numberValue.Value);
         _stack.Push(typeof(double));
     }
 
@@ -1419,7 +1428,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         if (instruction.Operands[0] is not WasmNumberValue<float> numberValue)
             throw new InvalidOperationException();
 
-        _il.Emit(OpCodes.Ldc_R4, numberValue.Value);
+        il.EmitLdcR4(numberValue.Value);
         _stack.Push(typeof(float));
     }
 
@@ -1431,7 +1440,7 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         if (instruction.Operands[0] is not WasmNumberValue<long> numberValue)
             throw new InvalidOperationException();
 
-        _il.Emit(OpCodes.Ldc_I8, numberValue.Value);
+        il.EmitLdcI8(numberValue.Value);
         _stack.Push(typeof(long));
     }
 
@@ -1443,13 +1452,13 @@ public class WasmCompiler(ModuleInstance module, MethodBuilder method, WasmType 
         if (instruction.Operands[0] is not WasmNumberValue<int> numberValue)
             throw new InvalidOperationException();
 
-        _il.Emit(OpCodes.Ldc_I4, numberValue.Value);
+        il.EmitLdcI4(numberValue.Value);
         _stack.Push(typeof(int));
     }
 
     private void Ret()
     {
-        _il.Emit(OpCodes.Ret);
+        il.Emit(ILOpcode.Ret);
 
         if (method.ReturnType != typeof(void))
         {
