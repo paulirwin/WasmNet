@@ -2,7 +2,7 @@ using WasmNet.Core.ILGeneration;
 
 namespace WasmNet.Core;
 
-public class ModuleInstance(WasmModule module, Store store)
+public class ModuleInstance(WasmModule module, Store store, ICompilationAssembly compilationAssembly)
 {
     private readonly List<WasmType> _types = new();
     private readonly List<int> _functionAddresses = new();
@@ -27,7 +27,7 @@ public class ModuleInstance(WasmModule module, Store store)
     
     public IReadOnlyList<int> DataAddresses => _dataAddresses;
     
-    public Lazy<EmitAssembly> EmitAssembly { get; } = new(LazyThreadSafetyMode.ExecutionAndPublication);
+    public ICompilationAssembly CompilationAssembly { get; } = compilationAssembly;
     
     public IDictionary<string, IDictionary<string, object?>>? Importables { get; set; }
 

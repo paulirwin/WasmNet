@@ -1,14 +1,16 @@
-﻿using System.Reflection;
+﻿using WasmNet.Core.ILGeneration;
 using WasmNet.Core.Wasi;
 
 namespace WasmNet.Core;
 
 public class WasmRuntime
 {
+    private readonly ICompilationAssembly _compilationAssembly;
     private readonly IDictionary<string, IDictionary<string, object?>> _importables = new Dictionary<string, IDictionary<string, object?>>();
 
-    public WasmRuntime()
+    public WasmRuntime(ICompilationAssembly compilationAssembly)
     {
+        _compilationAssembly = compilationAssembly;
         this.RegisterWasiPreview1();
     }
     
@@ -46,7 +48,7 @@ public class WasmRuntime
 
     private ModuleInstance CompileModule(WasmModule module)
     {
-        var moduleInstance = new ModuleInstance(module, Store);
+        var moduleInstance = new ModuleInstance(module, Store, _compilationAssembly);
         
         EvaluateModuleTypes(module, moduleInstance);
 
@@ -302,26 +304,23 @@ public class WasmRuntime
             Locals = new List<WasmLocal>(),
             Body = expr,
         };
-
-        var builder = moduleInstance.EmitAssembly.Value.CreateGlobalBuilder(
-            compilationType,
-            expr.EmitName,
-            valueType.DotNetType
-        );
         
-        WasmCompiler.CompileFunction(moduleInstance, builder, funcType, funcCode);
+        moduleInstance.CompilationAssembly.DeclareAndCompileMethod(
+            moduleInstance,
+            compilationType,
+            name: expr.EmitName,
+            returnType: valueType.DotNetType,
+            parameterTypes: Enumerable.Empty<Type>(),
+            wasmType: funcType, 
+            code: funcCode
+        );
     }
 
     private static object? GetExpressionValue(ModuleInstance moduleInstance, 
         CompilationType compilationType, 
-        string emitName)
+        string functionName)
     {
-        var type = moduleInstance.EmitAssembly.Value.GetCompiledType(compilationType);
-        
-        var method = type.GetMethod(emitName,
-                         BindingFlags.Public | BindingFlags.Static)
-                     ?? throw new InvalidOperationException(
-                         $"Unable to find method {emitName} in generated function holder type");
+        var method = moduleInstance.CompilationAssembly.GetCompiledMethod(compilationType, functionName);
 
         return method.Invoke(null, new object?[] { moduleInstance });
     }
@@ -442,11 +441,10 @@ public class WasmRuntime
 
             moduleInstance.AddFunctionAddress(funcAddr);
 
-            moduleInstance.EmitAssembly.Value.CreateFunctionBuilder(
-                funcInstance.EmitName,
-                funcInstance.ReturnType,
-                funcInstance.ParameterTypes
-            );
+            moduleInstance.CompilationAssembly.DeclareMethod(CompilationType.Function, 
+                funcInstance.EmitName, 
+                funcInstance.ReturnType, 
+                funcInstance.ParameterTypes);
         }
     }
 
@@ -458,11 +456,10 @@ public class WasmRuntime
 
             if (func is WasmFunctionInstance wasmFunc)
             {
-                var builder = moduleInstance.EmitAssembly.Value.GetFunctionBuilder(wasmFunc.EmitName)
-                              ?? throw new InvalidOperationException(
-                                  $"Unable to find function builder {wasmFunc.EmitName}");
-
-                WasmCompiler.CompileFunction(moduleInstance, builder, wasmFunc.Type, wasmFunc.Code);
+                moduleInstance.CompilationAssembly.CompileDeclaredMethod(moduleInstance, 
+                    wasmFunc.EmitName, 
+                    wasmFunc.Type, 
+                    wasmFunc.Code);
             }
         }
     }

@@ -3,7 +3,7 @@ using System.Reflection.Emit;
 
 namespace WasmNet.Core.ILGeneration;
 
-public class EmitAssembly
+public class ReflectionEmitCompilationAssembly : ICompilationAssembly
 {
     private const TypeAttributes StaticClass = TypeAttributes.Class | TypeAttributes.AutoLayout |
                                                TypeAttributes.AnsiClass | TypeAttributes.Abstract |
@@ -17,7 +17,7 @@ public class EmitAssembly
 
     private readonly IDictionary<string, MethodBuilder> _methodBuilders = new Dictionary<string, MethodBuilder>();
 
-    public EmitAssembly()
+    public ReflectionEmitCompilationAssembly()
     {
         Assembly = AssemblyBuilder.DefineDynamicAssembly(
             new AssemblyName($"WasmAssembly_{Id:N}"),
@@ -50,47 +50,6 @@ public class EmitAssembly
             ? compilation.Type
             : throw new ArgumentException($"Compilation type {type} does not exist");
 
-    public MethodBuilder CreateFunctionBuilder(string name, Type? returnType, Type[] parameters)
-    {
-        if (_methodBuilders.TryGetValue(name, out var builder))
-        {
-            throw new InvalidOperationException($"Function {name} already created");
-        }
-
-        var paramsWithModule = new[] { typeof(ModuleInstance) }
-            .Concat(parameters)
-            .ToArray();
-
-        var typeBuilder = GetTypeBuilder(CompilationType.Function);
-        
-        builder = typeBuilder.DefineMethod(name, PublicStaticMethod, returnType, paramsWithModule);
-        
-        _methodBuilders.Add(name, builder);
-
-        return builder;
-    }
-    
-    public MethodBuilder CreateGlobalBuilder(CompilationType type, string name, Type? returnType)
-    {
-        if (_methodBuilders.TryGetValue(name, out var builder))
-        {
-            throw new InvalidOperationException($"Function {name} already created");
-        }
-
-        var typeBuilder = GetTypeBuilder(type);
-
-        builder = typeBuilder.DefineMethod(name, PublicStaticMethod, returnType, new[] { typeof(ModuleInstance) });
-        
-        _methodBuilders.Add(name, builder);
-
-        return builder;
-    }
-
-    public MethodBuilder? GetFunctionBuilder(string name) =>
-        _methodBuilders.TryGetValue(name, out var builder)
-            ? builder
-            : null;
-
     private class Compilation(TypeBuilder typeBuilder)
     {
         private Type? _type;
@@ -106,5 +65,45 @@ public class EmitAssembly
                 return _type;
             }
         }
+    }
+
+    public MethodInfo GetCompiledMethod(CompilationType compilationType, string name)
+    {
+        var type = GetCompiledType(compilationType);
+        
+        return type.GetMethod(name, BindingFlags.Public | BindingFlags.Static)
+            ?? throw new InvalidOperationException(
+                $"Unable to find method {name} in generated {compilationType} holder type");
+    }
+
+    public void DeclareMethod(CompilationType compilationType, 
+        string name, 
+        Type? returnType, 
+        IEnumerable<Type> parameterTypes)
+    {
+        if (_methodBuilders.TryGetValue(name, out var builder))
+        {
+            throw new InvalidOperationException($"Function {name} already created");
+        }
+
+        var paramsWithModule = new[] { typeof(ModuleInstance) }
+            .Concat(parameterTypes)
+            .ToArray();
+
+        var typeBuilder = GetTypeBuilder(compilationType);
+        
+        builder = typeBuilder.DefineMethod(name, PublicStaticMethod, returnType, paramsWithModule);
+        
+        _methodBuilders.Add(name, builder);
+    }
+
+    public void CompileDeclaredMethod(ModuleInstance moduleInstance, string name, WasmType type, WasmCode code)
+    {
+        if (!_methodBuilders.TryGetValue(name, out var builder))
+        {
+            throw new InvalidOperationException($"Unable to find function builder {name}");
+        }
+
+        WasmCompiler.CompileFunction(moduleInstance, builder, type, code);
     }
 }

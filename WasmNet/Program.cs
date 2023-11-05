@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using WasmNet.Core;
+using WasmNet.Core.ILGeneration;
 
 if (args.Length < 1)
 {
@@ -13,7 +14,7 @@ if (args.Length < 1)
     return;
 }
 
-var runtime = new WasmRuntime();
+var runtime = new WasmRuntime(new ReflectionEmitCompilationAssembly());
 
 var module = await runtime.InstantiateModuleAsync(args[0]);
 

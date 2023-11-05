@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text;
+using WasmNet.Core.ILGeneration;
 using Xunit.Abstractions;
 
 namespace WasmNet.Tests;
@@ -28,7 +29,7 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
         var oldOut = Console.Out;
         Console.SetOut(outputWriter);
         
-        WasmRuntime runtime = new()
+        WasmRuntime runtime = new(new ReflectionEmitCompilationAssembly())
         {
             ExitHandler = code => throw new ExitCodeException(code),
         };

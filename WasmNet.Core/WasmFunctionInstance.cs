@@ -1,5 +1,3 @@
-using System.Reflection;
-
 namespace WasmNet.Core;
 
 public class WasmFunctionInstance(WasmType type, ModuleInstance module, WasmCode code) 
@@ -22,15 +20,7 @@ public class WasmFunctionInstance(WasmType type, ModuleInstance module, WasmCode
 
     public object? Invoke(params object?[]? args)
     {
-        var type = Module.EmitAssembly.Value.GetCompiledType(CompilationType.Function);
-        
-        var method = type.GetMethod(EmitName, BindingFlags.Public | BindingFlags.Static);
-
-        if (method == null)
-        {
-            throw new InvalidOperationException(
-                $"Unable to find method {EmitName} in generated function holder type");
-        }
+        var method = Module.CompilationAssembly.GetCompiledMethod(CompilationType.Function, EmitName);
         
         var argsWithModule = new[] { Module }
             .Concat(args ?? Array.Empty<object?>())
