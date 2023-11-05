@@ -104,6 +104,13 @@ public class ReflectionEmitCompilationAssembly : ICompilationAssembly
             throw new InvalidOperationException($"Unable to find function builder {name}");
         }
 
-        WasmCompiler.CompileFunction(moduleInstance, builder, type, code);
+        var compiler = new WasmCompiler(
+            new ReflectionEmitILGenerator(builder), 
+            moduleInstance, 
+            builder.ReturnType, 
+            type, 
+            code);
+        
+        compiler.CompileFunction();
     }
 }

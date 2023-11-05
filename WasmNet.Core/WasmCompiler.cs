@@ -1,11 +1,10 @@
 using System.Diagnostics;
 using System.Reflection;
-using System.Reflection.Emit;
 using WasmNet.Core.ILGeneration;
 
 namespace WasmNet.Core;
 
-public class WasmCompiler(IILGenerator il, ModuleInstance module, MethodInfo method, WasmType type, WasmCode code)
+public class WasmCompiler(IILGenerator il, ModuleInstance module, Type returnType, WasmType type, WasmCode code)
 {
     private readonly Stack<Type> _stack = new();
     private readonly Stack<ILLabel> _labels = new();
@@ -22,12 +21,6 @@ public class WasmCompiler(IILGenerator il, ModuleInstance module, MethodInfo met
         _memoryInitDestLocalIndex = -1,
         _memoryInitSrcLocalIndex = -1,
         _memoryInitCountLocalIndex = -1;
-
-    public static void CompileFunction(ModuleInstance module, MethodBuilder method, WasmType type, WasmCode code)
-    {
-        var compiler = new WasmCompiler(new ReflectionEmitILGenerator(method), module, method, type, code);
-        compiler.CompileFunction();
-    }
     
     public void CompileFunction()
     {
@@ -1460,7 +1453,7 @@ public class WasmCompiler(IILGenerator il, ModuleInstance module, MethodInfo met
     {
         il.Emit(ILOpcode.Ret);
 
-        if (method.ReturnType != typeof(void))
+        if (returnType != typeof(void))
         {
             _stack.Pop();
         }
