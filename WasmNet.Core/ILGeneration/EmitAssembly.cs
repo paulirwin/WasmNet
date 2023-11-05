@@ -1,7 +1,7 @@
 using System.Reflection;
 using System.Reflection.Emit;
 
-namespace WasmNet.Core;
+namespace WasmNet.Core.ILGeneration;
 
 public class EmitAssembly
 {

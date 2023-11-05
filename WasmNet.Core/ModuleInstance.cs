@@ -1,3 +1,5 @@
+using WasmNet.Core.ILGeneration;
+
 namespace WasmNet.Core;
 
 public class ModuleInstance(WasmModule module, Store store)
