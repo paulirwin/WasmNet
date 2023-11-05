@@ -1,5 +1,4 @@
 ﻿using System.Reflection;
-using System.Reflection.Emit;
 using WasmNet.Core.Wasi;
 
 namespace WasmNet.Core;
@@ -100,9 +99,7 @@ public class WasmRuntime
         var tableAddress = moduleInstance.TableAddresses[tableIndex];
         var table = Store.Tables[tableAddress];
         
-        var offset = GetExpressionValue(moduleInstance,
-            () => moduleInstance.EmitAssembly.Value.ElementHolderType,
-            offsetExpr.EmitName);
+        var offset = GetExpressionValue(moduleInstance, CompilationType.Element, offsetExpr.EmitName);
 
         if (offset is not int offsetInt)
         {
@@ -110,9 +107,7 @@ public class WasmRuntime
         }
 
         var funcRefs = element.Init
-            .Select(i => GetExpressionValue(moduleInstance, 
-                () => moduleInstance.EmitAssembly.Value.ElementHolder,
-                i.EmitName))
+            .Select(i => GetExpressionValue(moduleInstance, CompilationType.Element, i.EmitName))
             .Cast<FunctionReference>()
             .ToList();
 
@@ -132,17 +127,11 @@ public class WasmRuntime
         }
         
         var offsetExpr = element.Offset ?? throw new InvalidOperationException("Element offset expression is null");
-        CompileExpression(moduleInstance,
-            moduleInstance.EmitAssembly.Value.ElementHolder,
-            WasmNumberType.I32,
-            offsetExpr);
+        CompileExpression(moduleInstance, CompilationType.Element, WasmNumberType.I32, offsetExpr);
 
         foreach (var initExpr in element.Init)
         {
-            CompileExpression(moduleInstance,
-                moduleInstance.EmitAssembly.Value.ElementHolder,
-                WasmReferenceType.FuncRef,
-                initExpr);
+            CompileExpression(moduleInstance, CompilationType.Element, WasmReferenceType.FuncRef, initExpr);
         }
     }
 
@@ -232,9 +221,7 @@ public class WasmRuntime
         var memoryAddress = moduleInstance.MemoryAddresses[memoryIndex];
         var memory = Store.Memory[memoryAddress];
 
-        var offset = GetExpressionValue(moduleInstance,
-            () => moduleInstance.EmitAssembly.Value.DataHolderType,
-            offsetExpr.EmitName);
+        var offset = GetExpressionValue(moduleInstance, CompilationType.Data, offsetExpr.EmitName);
 
         if (offset is not int offsetInt)
         {
@@ -252,7 +239,7 @@ public class WasmRuntime
     {
         var offsetExpr = data.OffsetExpr ?? throw new InvalidOperationException("Data offset expression is null");
         CompileExpression(moduleInstance,
-            moduleInstance.EmitAssembly.Value.DataHolder,
+            CompilationType.Data,
             WasmNumberType.I32,
             offsetExpr);
     }
@@ -281,17 +268,12 @@ public class WasmRuntime
     {
         var valueType = global.Type;
 
-        CompileExpression(moduleInstance, 
-            moduleInstance.EmitAssembly.Value.GlobalHolder,
-            valueType, 
-            global.Init);
+        CompileExpression(moduleInstance, CompilationType.Global, valueType, global.Init);
     }
 
     private void EvaluateGlobal(ModuleInstance moduleInstance, WasmGlobal global, WasmValueType valueType)
     {
-        var globalValue = GetExpressionValue(moduleInstance,
-            () => moduleInstance.EmitAssembly.Value.GlobalHolderType,
-            global.Init.EmitName);
+        var globalValue = GetExpressionValue(moduleInstance, CompilationType.Global, global.Init.EmitName);
 
         var globalInstance = new Global(valueType, global.Mutable, globalValue);
 
@@ -301,16 +283,10 @@ public class WasmRuntime
 
     private static void CompileExpression(
         ModuleInstance moduleInstance,
-        TypeBuilder typeBuilder,
+        CompilationType compilationType,
         WasmValueType valueType,
         Expression expr)
     {
-        var builder = moduleInstance.EmitAssembly.Value.CreateGlobalBuilder(
-            typeBuilder,
-            expr.EmitName,
-            valueType.DotNetType
-        );
-
         var funcType = new WasmType
         {
             Kind = WasmTypeKind.Function,
@@ -327,12 +303,22 @@ public class WasmRuntime
             Body = expr,
         };
 
+        var builder = moduleInstance.EmitAssembly.Value.CreateGlobalBuilder(
+            compilationType,
+            expr.EmitName,
+            valueType.DotNetType
+        );
+        
         WasmCompiler.CompileFunction(moduleInstance, builder, funcType, funcCode);
     }
 
-    private static object? GetExpressionValue(ModuleInstance moduleInstance, Func<Type> holderTypeGetter, string emitName)
+    private static object? GetExpressionValue(ModuleInstance moduleInstance, 
+        CompilationType compilationType, 
+        string emitName)
     {
-        var method = holderTypeGetter().GetMethod(emitName,
+        var type = moduleInstance.EmitAssembly.Value.GetCompiledType(compilationType);
+        
+        var method = type.GetMethod(emitName,
                          BindingFlags.Public | BindingFlags.Static)
                      ?? throw new InvalidOperationException(
                          $"Unable to find method {emitName} in generated function holder type");

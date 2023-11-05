@@ -5,7 +5,7 @@ using WasmNet.Core.ILGeneration;
 
 namespace WasmNet.Core;
 
-public class WasmCompiler(IILGenerator il, ModuleInstance module, MethodBuilder method, WasmType type, WasmCode code)
+public class WasmCompiler(IILGenerator il, ModuleInstance module, MethodInfo method, WasmType type, WasmCode code)
 {
     private readonly Stack<Type> _stack = new();
     private readonly Stack<ILLabel> _labels = new();

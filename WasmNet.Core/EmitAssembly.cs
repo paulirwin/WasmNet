@@ -12,10 +12,8 @@ public class EmitAssembly
     public const MethodAttributes PublicStaticMethod =
         MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Static;
 
-    private Type? _funcTypeInfo;
-    private Type? _globalTypeInfo;
-    private Type? _dataTypeInfo;
-    private Type? _elementTypeInfo;
+    private readonly IDictionary<CompilationType, Compilation> _compilations =
+        new Dictionary<CompilationType, Compilation>();
 
     private readonly IDictionary<string, MethodBuilder> _methodBuilders = new Dictionary<string, MethodBuilder>();
 
@@ -30,10 +28,10 @@ public class EmitAssembly
             $"WasmModule_{Id:N}"
         );
 
-        FunctionHolder = Module.DefineType($"WasmFunctionHolder_{Id:N}", StaticClass);
-        GlobalHolder = Module.DefineType($"WasmGlobalHolder_{Id:N}", StaticClass);
-        DataHolder = Module.DefineType($"WasmDataHolder_{Id:N}", StaticClass);
-        ElementHolder = Module.DefineType($"WasmElementHolder_{Id:N}", StaticClass);
+        _compilations[CompilationType.Function] = new(Module.DefineType($"WasmFunctionHolder_{Id:N}", StaticClass));
+        _compilations[CompilationType.Global] = new(Module.DefineType($"WasmGlobalHolder_{Id:N}", StaticClass));
+        _compilations[CompilationType.Data] = new(Module.DefineType($"WasmDataHolder_{Id:N}", StaticClass));
+        _compilations[CompilationType.Element] = new(Module.DefineType($"WasmElementHolder_{Id:N}", StaticClass));
     }
 
     public Guid Id { get; } = Guid.NewGuid();
@@ -42,53 +40,15 @@ public class EmitAssembly
 
     public ModuleBuilder Module { get; }
 
-    public TypeBuilder FunctionHolder { get; }
+    public TypeBuilder GetTypeBuilder(CompilationType type) =>
+        _compilations.TryGetValue(type, out var compilation)
+            ? compilation.TypeBuilder
+            : throw new ArgumentException($"Compilation type {type} does not exist");
     
-    public TypeBuilder GlobalHolder { get; }
-    
-    public TypeBuilder DataHolder { get; }
-    
-    public TypeBuilder ElementHolder { get; }
-
-    public Type FunctionHolderType
-    {
-        get
-        {
-            _funcTypeInfo ??= FunctionHolder.CreateType();
-
-            return _funcTypeInfo;
-        }
-    }
-    
-    public Type GlobalHolderType
-    {
-        get
-        {
-            _globalTypeInfo ??= GlobalHolder.CreateType();
-
-            return _globalTypeInfo;
-        }
-    }
-    
-    public Type DataHolderType
-    {
-        get
-        {
-            _dataTypeInfo ??= DataHolder.CreateType();
-
-            return _dataTypeInfo;
-        }
-    }
-    
-    public Type ElementHolderType
-    {
-        get
-        {
-            _elementTypeInfo ??= ElementHolder.CreateType();
-
-            return _elementTypeInfo;
-        }
-    }
+    public Type GetCompiledType(CompilationType type) =>
+        _compilations.TryGetValue(type, out var compilation)
+            ? compilation.Type
+            : throw new ArgumentException($"Compilation type {type} does not exist");
 
     public MethodBuilder CreateFunctionBuilder(string name, Type? returnType, Type[] parameters)
     {
@@ -100,20 +60,24 @@ public class EmitAssembly
         var paramsWithModule = new[] { typeof(ModuleInstance) }
             .Concat(parameters)
             .ToArray();
+
+        var typeBuilder = GetTypeBuilder(CompilationType.Function);
         
-        builder = FunctionHolder.DefineMethod(name, PublicStaticMethod, returnType, paramsWithModule);
+        builder = typeBuilder.DefineMethod(name, PublicStaticMethod, returnType, paramsWithModule);
         
         _methodBuilders.Add(name, builder);
 
         return builder;
     }
     
-    public MethodBuilder CreateGlobalBuilder(TypeBuilder typeBuilder, string name, Type? returnType)
+    public MethodBuilder CreateGlobalBuilder(CompilationType type, string name, Type? returnType)
     {
         if (_methodBuilders.TryGetValue(name, out var builder))
         {
             throw new InvalidOperationException($"Function {name} already created");
         }
+
+        var typeBuilder = GetTypeBuilder(type);
 
         builder = typeBuilder.DefineMethod(name, PublicStaticMethod, returnType, new[] { typeof(ModuleInstance) });
         
@@ -126,4 +90,21 @@ public class EmitAssembly
         _methodBuilders.TryGetValue(name, out var builder)
             ? builder
             : null;
+
+    private class Compilation(TypeBuilder typeBuilder)
+    {
+        private Type? _type;
+
+        public TypeBuilder TypeBuilder { get; } = typeBuilder;
+
+        public Type Type
+        {
+            get
+            {
+                _type ??= TypeBuilder.CreateType();
+
+                return _type;
+            }
+        }
+    }
 }

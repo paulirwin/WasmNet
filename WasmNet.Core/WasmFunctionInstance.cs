@@ -22,8 +22,9 @@ public class WasmFunctionInstance(WasmType type, ModuleInstance module, WasmCode
 
     public object? Invoke(params object?[]? args)
     {
-        var method = Module.EmitAssembly.Value.FunctionHolderType.GetMethod(EmitName,
-            BindingFlags.Public | BindingFlags.Static);
+        var type = Module.EmitAssembly.Value.GetCompiledType(CompilationType.Function);
+        
+        var method = type.GetMethod(EmitName, BindingFlags.Public | BindingFlags.Static);
 
         if (method == null)
         {
