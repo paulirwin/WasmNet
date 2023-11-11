@@ -11,10 +11,10 @@ public static partial class Preview1
         {
             throw new NotImplementedException("File descriptor other than stdout is not yet supported");
         }
-        
+
         var memory = runtime.Store.Memory[0];
         int written = 0;
-        
+
         for (int i = 0; i < iovsLen; i++)
         {
             var iov = memory.ReadStruct<WasiIovec>(iovs + i * 8);
@@ -24,16 +24,34 @@ public static partial class Preview1
             if (len > 0)
             {
                 var bytes = memory.Read(ptr, len);
-                            
-                var str = Encoding.UTF8.GetString(bytes[..^1]);
-                
+
+                var zeroIndex = IndexOfZero(bytes);
+
+                if (zeroIndex < 0)
+                    zeroIndex = bytes.Length;
+
+                var str = Encoding.UTF8.GetString(bytes[..zeroIndex]);
+
                 Console.Write(str);
                 written += len;
             }
         }
-        
+
         memory.Write(nWritten, BitConverter.GetBytes(written));
-        
+
         return written;
+    }
+
+    private static int IndexOfZero(Span<byte> bytes)
+    {
+        for (int i = 0; i < bytes.Length; i++)
+        {
+            if (bytes[i] == 0)
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 }

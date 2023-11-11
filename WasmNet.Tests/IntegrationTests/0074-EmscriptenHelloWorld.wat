@@ -1,5 +1,5 @@
 ;; invoke: _start
-;; output: hello, world!
+;; output: hello, world!\n
 (module
   (type (;0;) (func (result i32)))
   (type (;1;) (func (param i32 i32 i32) (result i32)))
