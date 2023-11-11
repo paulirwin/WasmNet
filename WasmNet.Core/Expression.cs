@@ -28,4 +28,23 @@ public class Expression
         
         return hash.ToHashCode();
     }
+    
+    public IEnumerable<WasmInstruction> FlattenedInstructions()
+    {
+        foreach (var instruction in Instructions)
+        {
+            yield return instruction;
+            
+            foreach (var operand in instruction.Operands)
+            {
+                if (operand is WasmExpressionValue { Expression: { } expr })
+                {
+                    foreach (var nestedInstruction in expr.FlattenedInstructions())
+                    {
+                        yield return nestedInstruction;
+                    }
+                }
+            }
+        }
+    }
 }

@@ -26,7 +26,7 @@ public class WasmCompiler(IILGenerator il, ModuleInstance module, Type returnTyp
     {
         DeclareLocals();
 
-        if (code.Body.Instructions.Any(i => i.Opcode is WasmOpcode.Call or WasmOpcode.CallIndirect))
+        if (code.Body.FlattenedInstructions().Any(i => i.Opcode is WasmOpcode.Call or WasmOpcode.CallIndirect))
         {
             var argsLocal = il.DeclareLocal(typeof(object[])); // args
             _callArgsLocalIndex = argsLocal.LocalIndex;
@@ -35,19 +35,19 @@ public class WasmCompiler(IILGenerator il, ModuleInstance module, Type returnTyp
             _callTempLocalIndex = tempLocal.LocalIndex;
         }
         
-        if (code.Body.Instructions.Any(i => i.Opcode == WasmOpcode.CallIndirect))
+        if (code.Body.FlattenedInstructions().Any(i => i.Opcode == WasmOpcode.CallIndirect))
         {
             var elementLocal = il.DeclareLocal(typeof(int));   // temp array value for element index
             _callIndirectElementLocalIndex = elementLocal.LocalIndex;
         }
 
-        if (code.Body.Instructions.Any(i => i.Opcode == WasmOpcode.GlobalSet))
+        if (code.Body.FlattenedInstructions().Any(i => i.Opcode == WasmOpcode.GlobalSet))
         {
             var tempLocal = il.DeclareLocal(typeof(object));   // temp global value
             _globalTempLocalIndex = tempLocal.LocalIndex;
         }
 
-        if (code.Body.Instructions.Any(i => i.Opcode is WasmOpcode.I32Store 
+        if (code.Body.FlattenedInstructions().Any(i => i.Opcode is WasmOpcode.I32Store 
                 or WasmOpcode.I32Load 
                 or WasmOpcode.I64Store 
                 or WasmOpcode.I64Load
@@ -73,7 +73,7 @@ public class WasmCompiler(IILGenerator il, ModuleInstance module, Type returnTyp
             _memoryStoreLoadOffsetLocalIndex = offsetLocal.LocalIndex;
         }
 
-        if (code.Body.Instructions.Any(i => i.Opcode is WasmOpcode.I32Store 
+        if (code.Body.FlattenedInstructions().Any(i => i.Opcode is WasmOpcode.I32Store 
                 or WasmOpcode.I32Store8
                 or WasmOpcode.I32Store16))
         {
@@ -81,19 +81,19 @@ public class WasmCompiler(IILGenerator il, ModuleInstance module, Type returnTyp
             _memoryStoreIntLocalIndex = intLocal.LocalIndex;
         }
         
-        if (code.Body.Instructions.Any(i => i.Opcode is WasmOpcode.F32Store))
+        if (code.Body.FlattenedInstructions().Any(i => i.Opcode is WasmOpcode.F32Store))
         {
             var floatLocal = il.DeclareLocal(typeof(float));   // temp float value
             _memoryStoreSingleLocalIndex = floatLocal.LocalIndex;
         }
         
-        if (code.Body.Instructions.Any(i => i.Opcode is WasmOpcode.F64Store))
+        if (code.Body.FlattenedInstructions().Any(i => i.Opcode is WasmOpcode.F64Store))
         {
             var doubleLocal = il.DeclareLocal(typeof(double));   // temp double value
             _memoryStoreDoubleLocalIndex = doubleLocal.LocalIndex;
         }
         
-        if (code.Body.Instructions.Any(i => i.Opcode is WasmOpcode.I64Store
+        if (code.Body.FlattenedInstructions().Any(i => i.Opcode is WasmOpcode.I64Store
                 or WasmOpcode.I64Store8
                 or WasmOpcode.I64Store16
                 or WasmOpcode.I64Store32))
@@ -102,7 +102,7 @@ public class WasmCompiler(IILGenerator il, ModuleInstance module, Type returnTyp
             _memoryStoreLongLocalIndex = intLocal.LocalIndex;
         }
         
-        if (code.Body.Instructions.Any(i => i.Opcode == WasmOpcode.MemoryInit))
+        if (code.Body.FlattenedInstructions().Any(i => i.Opcode == WasmOpcode.MemoryInit))
         {
             var destLocal = il.DeclareLocal(typeof(int));   // temp dest value
             _memoryInitDestLocalIndex = destLocal.LocalIndex;
