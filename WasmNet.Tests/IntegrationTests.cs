@@ -9,7 +9,7 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
 {
     [MemberData(nameof(GetWatFiles))]
     [Theory]
-    public async Task IntegrationTest(string file)
+    public async Task IntegrationTest(bool useMonoCecil, string file)
     {
         var filePath = Path.Combine("IntegrationTests", file);
         var fileText = await File.ReadAllTextAsync(filePath);
@@ -29,7 +29,9 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
         var oldOut = Console.Out;
         Console.SetOut(outputWriter);
         
-        WasmRuntime runtime = new(new ReflectionEmitCompilationAssembly())
+        WasmRuntime runtime = new(useMonoCecil 
+            ? new MonoCecilCompilationAssembly() 
+            : new ReflectionEmitCompilationAssembly())
         {
             ExitHandler = code => throw new ExitCodeException(code),
         };
@@ -159,7 +161,7 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
             }
             else if (op is OutputOperation outputOp)
             {
-                if (exception is not null)
+                if (exception is not null && exception is not ExitCodeException { ExitCode: 0 })
                 {
                     throw new Exception($"Expected output \"{outputOp.Text.Replace("\n", "\\n")}\" but it threw an exception: {exception}");
                 }
@@ -181,17 +183,13 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
     {
         var files = Directory.GetFiles("IntegrationTests", "*.wat", SearchOption.AllDirectories);
         
-        return files.Select(i => new object[] { Path.GetFileName(i) });
+        return files.Select(i => new object[] { false, Path.GetFileName(i) })
+            .Concat(files.Select(i => new object[] { true, Path.GetFileName(i) }));
     }
     
-    private class ExitCodeException : Exception
+    private class ExitCodeException(int exitCode) : Exception
     {
-        public ExitCodeException(int exitCode)
-        {
-            ExitCode = exitCode;
-        }
-        
-        public int ExitCode { get; }
+        public int ExitCode { get; } = exitCode;
     }
 
     private abstract class Operation;
