@@ -20,13 +20,16 @@ public static partial class Preview1
             var iov = memory.ReadStruct<WasiIovec>(iovs + i * 8);
             var ptr = iov.buf;
             var len = iov.buf_len;
-            
-            var bytes = memory.Read(ptr, len);
-            
-            var str = Encoding.UTF8.GetString(bytes[..^1]);
-            
-            Console.Write(str);
-            written += len;
+
+            if (len > 0)
+            {
+                var bytes = memory.Read(ptr, len);
+                            
+                var str = Encoding.UTF8.GetString(bytes[..^1]);
+                
+                Console.Write(str);
+                written += len;
+            }
         }
         
         memory.Write(nWritten, BitConverter.GetBytes(written));
