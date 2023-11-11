@@ -58,6 +58,9 @@ public class WasmReader
                 case WasmDataCountSection dataCountSection:
                     module.DataCountSection = dataCountSection;
                     break;
+                case WasmStartSection startSection:
+                    module.StartSection = startSection;
+                    break;
             }
         }
 
@@ -91,6 +94,7 @@ public class WasmReader
             5 => ReadMemorySection(),
             6 => ReadGlobalSection(),
             7 => ReadExportSection(),
+            8 => ReadStartSection(),
             9 => ReadElementSection(),
             10 => ReadCodeSection(),
             11 => ReadDataSection(),
@@ -106,6 +110,16 @@ public class WasmReader
         }
 
         return section;
+    }
+
+    private WasmModuleSection ReadStartSection()
+    {
+        var index = ReadVarUInt32();
+
+        return new WasmStartSection
+        {
+            FuncIndex = (int)index,
+        };
     }
 
     private WasmModuleSection ReadDataCountSection()
@@ -773,7 +787,7 @@ public class WasmReader
         {
             Name = Encoding.UTF8.GetString(name),
             Kind = (WasmExportKind)kind,
-            Index = index
+            Index = (int)index
         };
     }
 

@@ -6,5 +6,5 @@ public class WasmExport : WasmModuleSection
     
     public required WasmExportKind Kind { get; init; }
     
-    public required uint Index { get; init; }
+    public required int Index { get; init; }
 }

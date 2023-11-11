@@ -31,7 +31,11 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
         
         WasmRuntime runtime = new(useMonoCecil 
             ? new MonoCecilCompilationAssembly() 
-            : new ReflectionEmitCompilationAssembly())
+            : new ReflectionEmitCompilationAssembly(),
+            new WasmRuntimeOptions
+            {
+                InvokeStartOnInstantiation = header.Start,
+            })
         {
             ExitHandler = code => throw new ExitCodeException(code),
         };
@@ -381,6 +385,8 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
     {
         public required IReadOnlyList<Operation> Operations { get; init; }
         
+        public required bool Start { get; init; }
+        
         public static Header Parse(string text)
         {
             var lines = text.TrimStart(' ', '\t', '\n', '\r')
@@ -390,10 +396,15 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
                 .ToList();
             
             var ops = new List<Operation>();
+            bool start = false;
             
             foreach (var line in lines)
             {
-                if (line.StartsWith("invoke: "))
+                if (line.StartsWith("start: "))
+                {
+                    start = bool.Parse(line[7..]);
+                }
+                else if (line.StartsWith("invoke: "))
                 {
                     ops.Add(InvokeOperation.Parse(line[8..])); 
                 }
@@ -438,6 +449,7 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
             return new Header
             {
                 Operations = ops,
+                Start = start,
             };
         }
     }

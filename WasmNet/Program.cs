@@ -30,7 +30,3 @@ if (args.Length > 1 && args[1] == "--invoke")
         Console.WriteLine(JsonSerializer.Serialize(result));
     }
 }
-else
-{
-    Console.WriteLine("No function specified.");
-}

@@ -6,11 +6,14 @@ namespace WasmNet.Core;
 public class WasmRuntime
 {
     private readonly ICompilationAssembly _compilationAssembly;
+    private readonly WasmRuntimeOptions _options;
     private readonly IDictionary<string, IDictionary<string, object?>> _importables = new Dictionary<string, IDictionary<string, object?>>();
 
-    public WasmRuntime(ICompilationAssembly compilationAssembly)
+    public WasmRuntime(ICompilationAssembly compilationAssembly,
+        WasmRuntimeOptions? options = null)
     {
         _compilationAssembly = compilationAssembly;
+        _options = options ?? new WasmRuntimeOptions();
         this.RegisterWasiPreview1();
     }
     
@@ -43,7 +46,34 @@ public class WasmRuntime
         
         moduleInstance.Importables = _importables;
 
+        if (_options.InvokeStartOnInstantiation)
+        {
+            TryInvokeStartFunc(module, moduleInstance);
+        }
+
         return moduleInstance;
+    }
+
+    private static void TryInvokeStartFunc(WasmModule module, ModuleInstance moduleInstance)
+    {
+        IFunctionInstance? startFunc = null;
+
+        if (module.StartSection is { FuncIndex: var startFuncIndex })
+        {
+            startFunc = moduleInstance.GetFunction(startFuncIndex);
+        }
+        else if (module.ExportSection is { Exports: var exports })
+        {
+            var startExport = exports.FirstOrDefault(i => i.Name == "_start");
+
+            if (startExport != null)
+            {
+                startFunc = moduleInstance.GetFunction(startExport.Index);
+            }
+        }
+
+        // TODO.PI: pass args?
+        startFunc?.Invoke();
     }
 
     private ModuleInstance CompileModule(WasmModule module)
@@ -478,9 +508,7 @@ public class WasmRuntime
             throw new InvalidOperationException($"Export {function} is not a function.");
         }
 
-        //var funcIndex = (int)export.Index - (module.Module.ImportSection?.FunctionImports.Count ?? 0);
-        var funcAddr = module.FunctionAddresses[(int)export.Index];
-        var funcInstance = Store.Functions[funcAddr];
+        var funcInstance = module.GetFunction(export.Index);
 
         return funcInstance.Invoke(args);
     }
