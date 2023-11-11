@@ -1075,12 +1075,12 @@ public class WasmCompiler(IILGenerator il, ModuleInstance module, Type returnTyp
         
         var type = module.Types[typeIndexValue];
         var returnType = type.Results.Count == 0 ? typeof(void) : type.Results[0].DotNetType;
-        
-        PrepareCallArgsArray(type.Parameters.Count);
 
         // stack now contains the element index int, store to local
         il.EmitStloc(_callIndirectElementLocalIndex);
         _stack.Pop();
+        
+        PrepareCallArgsArray(type.Parameters.Count);
         
         il.EmitLdarg(0); // load module instance
         il.EmitLdcI4(tableIndexValue); // load table index

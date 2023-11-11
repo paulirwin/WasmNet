@@ -127,9 +127,20 @@ public class ModuleInstance(WasmModule module, Store store, ICompilationAssembly
         int elementIndex, 
         params object?[]? arguments)
     {
+        if (tableIndex >= _tableAddresses.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(tableIndex), "Table index is out of range");
+        }
+        
         var tableAddress = _tableAddresses[tableIndex];
         var table = Store.Tables[tableAddress];
         var functionType = _types[typeIndex];
+        
+        if (elementIndex >= table.Elements.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(elementIndex), "Element index is out of range");
+        }
+        
         var element = table.Elements[elementIndex];
         
         if (element is NullReference)
