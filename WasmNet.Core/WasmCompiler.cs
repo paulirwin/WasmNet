@@ -425,6 +425,9 @@ public class WasmCompiler(IILGenerator il, ModuleInstance module, Type returnTyp
             case WasmOpcode.Select:
                 Select();
                 break;
+            case WasmOpcode.If:
+                If(instruction);
+                break;
             default:
                 throw new NotImplementedException($"Opcode {instruction.Opcode} not implemented in compiler.");
         }
@@ -796,6 +799,66 @@ public class WasmCompiler(IILGenerator il, ModuleInstance module, Type returnTyp
         return label;
     }
 
+    private void If(WasmInstruction instruction)
+    {
+        bool hasElse = instruction.Operands.Count switch
+        {
+            2 => false,
+            3 => true,
+            _ => throw new ArgumentException("Invalid number of operands for if opcode")
+        };
+        
+        if (instruction.Operands[0] is not WasmBlockType blockType)
+            throw new InvalidOperationException("The first operand to if must be a block type");
+        
+        if (instruction.Operands[1] is not WasmExpressionValue ifBody)
+            throw new InvalidOperationException("If expression operand is not an expression");
+
+        WasmExpressionValue? elseBody = null;
+
+        if (hasElse)
+        {
+            if (instruction.Operands[2] is not WasmExpressionValue elseExpr)
+            {
+                throw new InvalidOperationException("Else expression operand is not an expression");
+            }
+
+            elseBody = elseExpr;
+        }
+
+        // Assert: due to validation, a value of value type i32 is on the top of the stack.
+        var type = _stack.Pop();
+
+        if (type != typeof(int))
+        {
+            throw new InvalidOperationException("Expected an i32 on the stack");
+        }
+
+        var elseLabel = il.DefineLabel();
+        il.EmitBrFalse(elseLabel);
+        
+        Block(new WasmInstruction(WasmOpcode.Block, blockType, ifBody));
+
+        ILLabel? ifEndLabel = null;
+        
+        if (elseBody is not null)
+        {
+            ifEndLabel = il.DefineLabel();
+            il.EmitBr(ifEndLabel);
+        }
+
+        il.MarkLabel(elseLabel);
+        Nop();
+
+        if (elseBody is not null)
+        {
+            Block(new WasmInstruction(WasmOpcode.Block, blockType, elseBody));
+            
+            il.MarkLabel(ifEndLabel ?? throw new InvalidOperationException("ifEndLabel is null"));
+            Nop();
+        }
+    }
+
     private void Block(WasmInstruction instruction)
     {
         if (instruction.Operands.Count != 2)
@@ -807,19 +870,19 @@ public class WasmCompiler(IILGenerator il, ModuleInstance module, Type returnTyp
         if (instruction.Operands[1] is not WasmExpressionValue { Expression: var expression })
             throw new InvalidOperationException();
 
-        if (blockType is not WasmBlockType.EmptyBlockType)
-            throw new NotImplementedException("Only empty block types are supported");
+        // TODO.PI: validate block type
+        // if (blockType is not WasmBlockType.EmptyBlockType)
+        //     throw new NotImplementedException("Only empty block types are supported");
 
         var label = CreateWasmVisibleLabel();
-        Nop();
         
         foreach (var exprInstruction in expression.Instructions)
         {
             CompileInstruction(exprInstruction);
         }
-
-        Nop();
+        
         il.MarkLabel(label);
+        Nop();
         _labels.Pop();
     }
 

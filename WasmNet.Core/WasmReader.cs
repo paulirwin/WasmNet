@@ -429,6 +429,47 @@ public class WasmReader
             Instructions = body,
         };
     }
+    
+    private (Expression IfBody, Expression? ElseBody) ReadIfElseExpressions()
+    {
+        // This function is a rudimentary state machine that first reads
+        // the "if" part of the expression body, and if it encounters an
+        // "else" opcode (0x05), it switches state to start reading the
+        // remaining instructions as the "else" body.
+        var ifBody = new List<WasmInstruction>();
+        List<WasmInstruction>? elseBody = null;
+
+        var currentBody = ifBody;
+
+        while (true)
+        {
+            var instruction = ReadInstruction();
+            
+            if (instruction.Opcode == WasmOpcode.End)
+            {
+                break;
+            }
+
+            if (instruction.Opcode == WasmOpcode.Else)
+            {
+                elseBody = new List<WasmInstruction>();
+                currentBody = elseBody;
+                continue;
+            }
+
+            currentBody.Add(instruction);
+        }
+
+        return (new Expression
+        {
+            Instructions = ifBody,
+        }, elseBody != null
+            ? new Expression
+            {
+                Instructions = elseBody
+            }
+            : null);
+    }
 
     private WasmInstruction ReadInstruction()
     {
@@ -523,6 +564,23 @@ public class WasmReader
                 return new WasmInstruction(WasmOpcode.BrTable,
                     new WasmI32VectorValue(labels.Select(i => (int)i).ToArray()),
                     new WasmI32Value(defaultLabel));
+            }
+            case WasmOpcode.If:
+            {
+                // Spec 5.4.1
+                // 0x04 bt:blocktype (in:instr)* 0x0B ⇒ if bt in* else 𝜖 end
+                // 0x04 bt:blocktype (in1:instr)* 0x05 (in2:instr)* 0x0B ⇒ if bt in1* else in2* end
+                var blockType = ReadBlockType();
+                var (ifBody, elseBody) = ReadIfElseExpressions();
+
+                return elseBody == null
+                    ? new WasmInstruction(WasmOpcode.If, 
+                        blockType,
+                        new WasmExpressionValue(ifBody))
+                    : new WasmInstruction(WasmOpcode.If, 
+                        blockType,
+                        new WasmExpressionValue(ifBody),
+                        new WasmExpressionValue(elseBody));
             }
             case WasmOpcode.I32Add:
             case WasmOpcode.I32Sub:
@@ -625,6 +683,7 @@ public class WasmReader
             case WasmOpcode.Select:
             case WasmOpcode.Unreachable:
             case WasmOpcode.Nop:
+            case WasmOpcode.Else:
                 return new WasmInstruction(opcode);
             default:
                 throw new Exception($"Unsupported WASM opcode: 0x{opcode:X}");

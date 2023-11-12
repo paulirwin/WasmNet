@@ -6,6 +6,8 @@ public enum WasmOpcode
     Nop = 0x01,
     Block = 0x02,
     Loop = 0x03,
+    If = 0x04,
+    Else = 0x05,
     End = 0x0B,
     Br = 0x0C,
     BrIf = 0x0D,

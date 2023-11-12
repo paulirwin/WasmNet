@@ -97,6 +97,16 @@ public class MonoCecilILGenerator(MethodDefinition methodDefinition)
         
         _il.Append(Instruction.Create(OpCodes.Brtrue, monoCecilLabel.Instruction));
     }
+    
+    public void EmitBrFalse(ILLabel label)
+    {
+        if (label is not MonoCecilLabel monoCecilLabel)
+        {
+            throw new ArgumentException("Label is not a MonoCecilLabel", nameof(label));
+        }
+        
+        _il.Append(Instruction.Create(OpCodes.Brfalse, monoCecilLabel.Instruction));
+    }
 
     public void EmitLdarg(int i)
     {

@@ -18,6 +18,8 @@ public interface IILGenerator
     
     void EmitBrTrue(ILLabel label);
     
+    void EmitBrFalse(ILLabel label);
+    
     void EmitLdarg(int i);
     
     void EmitLdcI4(int i);

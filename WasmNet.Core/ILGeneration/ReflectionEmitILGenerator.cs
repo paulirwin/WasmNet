@@ -86,6 +86,14 @@ public class ReflectionEmitILGenerator(MethodBuilder method)
         
         _il.Emit(OpCodes.Brtrue, reLabel.Label);
     }
+    
+    public void EmitBrFalse(ILLabel label)
+    {
+        if (label is not ReflectionEmitLabel reLabel)
+            throw new ArgumentException("Invalid label type", nameof(label));
+        
+        _il.Emit(OpCodes.Brfalse, reLabel.Label);
+    }
 
     public void EmitLdarg(int i) => _il.Emit(OpCodes.Ldarg, i);
 
