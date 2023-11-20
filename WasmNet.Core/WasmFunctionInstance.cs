@@ -1,6 +1,6 @@
 namespace WasmNet.Core;
 
-public class WasmFunctionInstance(WasmType type, ModuleInstance module, WasmCode code) 
+public class WasmFunctionInstance(int index, WasmType type, ModuleInstance module, WasmCode code) 
     : IFunctionInstance
 {
     public WasmType Type { get; } = type;
@@ -9,7 +9,11 @@ public class WasmFunctionInstance(WasmType type, ModuleInstance module, WasmCode
 
     public WasmCode Code { get; } = code;
 
-    public string EmitName { get; } = $"WasmFunction_{Guid.NewGuid():N}";
+    public string EmitName { get; } = $"WasmFunction_{index}";
+    
+    public string Name => module.Module.ExportSection?.Exports
+        .FirstOrDefault(x => x.Index == index)
+        ?.Name ?? EmitName;
 
     public Type ReturnType =>
         Type.Results.Count == 0
@@ -20,7 +24,7 @@ public class WasmFunctionInstance(WasmType type, ModuleInstance module, WasmCode
 
     public object? Invoke(params object?[]? args)
     {
-        var method = Module.CompilationAssembly.GetCompiledMethod(CompilationType.Function, EmitName);
+        var method = Module.CompilationAssembly.GetCompiledMethod(CompilationType.Function, Name);
         
         var argsWithModule = new[] { Module }
             .Concat(args ?? Array.Empty<object?>())

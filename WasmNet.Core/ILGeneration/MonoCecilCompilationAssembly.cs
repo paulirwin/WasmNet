@@ -33,7 +33,7 @@ public class MonoCecilCompilationAssembly : ICompilationAssembly, ISavableAssemb
         {
             var typeDefinition = new TypeDefinition(
                 @namespace: assemblyName, 
-                name: $"Wasm{compilationType}Holder_{Id:N}", 
+                name: compilationType == CompilationType.Data ? "Data" : $"{compilationType}s", 
                 attributes: StaticClass,
                 baseType: objectType);
             

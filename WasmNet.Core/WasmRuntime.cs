@@ -465,14 +465,16 @@ public class WasmRuntime
             var type = typeSection.Types[(int)func.FunctionSignatureIndex];
             var code = codeSection.Codes[i];
 
-            var funcInstance = new WasmFunctionInstance(type, moduleInstance, code);
+            var funcInstance = new WasmFunctionInstance(i, type, moduleInstance, code);
 
             var funcAddr = Store.AddFunction(funcInstance);
 
             moduleInstance.AddFunctionAddress(funcAddr);
+            
+            var funcExport = module.ExportSection?.Exports.FirstOrDefault(f => f.Index == i);
 
             moduleInstance.CompilationAssembly.DeclareMethod(CompilationType.Function, 
-                funcInstance.EmitName, 
+                funcExport?.Name ?? funcInstance.EmitName, 
                 funcInstance.ReturnType, 
                 funcInstance.ParameterTypes);
         }
@@ -487,7 +489,7 @@ public class WasmRuntime
             if (func is WasmFunctionInstance wasmFunc)
             {
                 moduleInstance.CompilationAssembly.CompileDeclaredMethod(moduleInstance, 
-                    wasmFunc.EmitName, 
+                    wasmFunc.Name, 
                     wasmFunc.Type, 
                     wasmFunc.Code);
             }

@@ -28,10 +28,10 @@ public class ReflectionEmitCompilationAssembly : ICompilationAssembly
             $"WasmModule_{Id:N}"
         );
 
-        _compilations[CompilationType.Function] = new(Module.DefineType($"WasmFunctionHolder_{Id:N}", StaticClass));
-        _compilations[CompilationType.Global] = new(Module.DefineType($"WasmGlobalHolder_{Id:N}", StaticClass));
-        _compilations[CompilationType.Data] = new(Module.DefineType($"WasmDataHolder_{Id:N}", StaticClass));
-        _compilations[CompilationType.Element] = new(Module.DefineType($"WasmElementHolder_{Id:N}", StaticClass));
+        foreach (var compilationType in Enum.GetValues<CompilationType>())
+        {
+            _compilations[compilationType] = new(Module.DefineType(compilationType == CompilationType.Data ? "Data" : $"{compilationType}s", StaticClass));    
+        }
     }
 
     public Guid Id { get; } = Guid.NewGuid();
