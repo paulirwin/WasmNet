@@ -5,7 +5,7 @@ using TypeAttributes = Mono.Cecil.TypeAttributes;
 
 namespace WasmNet.Core.ILGeneration;
 
-public class MonoCecilCompilationAssembly : ICompilationAssembly
+public class MonoCecilCompilationAssembly : ICompilationAssembly, ISavableAssembly
 {
     private const TypeAttributes StaticClass = TypeAttributes.Class | TypeAttributes.AutoLayout |
                                                TypeAttributes.AnsiClass | TypeAttributes.Abstract |
@@ -92,7 +92,9 @@ public class MonoCecilCompilationAssembly : ICompilationAssembly
         
         compiler.CompileFunction();
     }
-    
+
+    public void SaveAssembly(string path) => Assembly.Write(path);
+
     public MethodInfo GetCompiledMethod(CompilationType compilationType, string name)
     {
         var type = BuildType(compilationType);

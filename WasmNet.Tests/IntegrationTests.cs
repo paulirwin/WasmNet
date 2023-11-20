@@ -28,10 +28,12 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
         await using var outputWriter = new StringWriter(output);
         var oldOut = Console.Out;
         Console.SetOut(outputWriter);
-        
-        WasmRuntime runtime = new(useMonoCecil 
+
+        ICompilationAssembly compilationAssembly = useMonoCecil 
             ? new MonoCecilCompilationAssembly() 
-            : new ReflectionEmitCompilationAssembly(),
+            : new ReflectionEmitCompilationAssembly();
+        
+        WasmRuntime runtime = new(compilationAssembly,
             new WasmRuntimeOptions
             {
                 InvokeStartOnInstantiation = header.Start,
@@ -76,6 +78,13 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper)
         }
         
         var module = await runtime.InstantiateModuleAsync(wasmFile);
+        
+        // save assembly for debugging
+        if (compilationAssembly is ISavableAssembly savableAssembly)
+        {
+            var assemblyPath = Path.Combine("IntegrationTests", file.Replace(".wat", ".dll"));
+            savableAssembly.SaveAssembly(assemblyPath);
+        }
         
         object? result = null;
         Exception? exception = null;
